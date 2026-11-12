@@ -18,7 +18,7 @@ internal object Runtime {
     }
 
     fun notifyReactions(reactions: List<Reaction>) {
-        // A Computed can notify its own subscribers. Wait for the outermost
+        // A ComputedProperty can notify its own subscribers. Wait for the outermost
         // notification to finish so all affected caches are stale before reactions run.
         notificationDepth++
         try {

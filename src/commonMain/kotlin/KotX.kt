@@ -14,7 +14,11 @@ import ru.ought.kotx.internal.ObservableProperty
 fun <T> observable(initial: T): ReadWriteProperty<Any?, T> = ObservableProperty(initial)
 
 /**
- * A lazy derived property with dependencies discovered from reads in [expression].
+ * A **lazy** derived property that discovers dependencies by tracking reads in [expression].
+ * When a dependency changes, the cached result becomes stale and subscribers are
+ * notified. The expression is evaluated only when the property is read, so a
+ * synchronous autorun can cause reevaluation before the original write returns.
+ *
  * Results are cached while observed; unobserved reads evaluate afresh so unused
  * computed values do not keep subscriptions alive. Expressions must not write state.
  */

@@ -1,7 +1,7 @@
 package ru.ought.kotx.internal
 
 /** Reconciles one consumer's subscriptions with the reads of its latest evaluation. */
-internal class ReactionDependencies(private val owner: Reaction) {
+internal class DependencyTracker(private val owner: Reaction) {
     private var previous = linkedSetOf<Source>()
     private var current = linkedSetOf<Source>()
 
@@ -10,7 +10,11 @@ internal class ReactionDependencies(private val owner: Reaction) {
         if (current.add(source)) source.subscribe(owner)
     }
 
-    fun <T> trackReads(block: () -> T): T {
+    /**
+     * Runs [block] with the owner as the active reaction. On exit, restores the
+     * previous reaction and removes subscriptions that this run no longer needs.
+     */
+    fun <T> runAsActive(block: () -> T): T {
         current = linkedSetOf()
         val enclosing = Runtime.activeReaction
         Runtime.activeReaction = owner
@@ -27,7 +31,7 @@ internal class ReactionDependencies(private val owner: Reaction) {
         }
     }
 
-    fun clear() {
+    fun clearSources() {
         // Closing during an evaluation must release both old and newly collected reads.
         (previous + current).forEach { it.unsubscribe(owner) }
         previous.clear()
