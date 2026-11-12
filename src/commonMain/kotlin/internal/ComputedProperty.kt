@@ -5,8 +5,8 @@ import kotlin.reflect.KProperty
 
 /** Both a source for downstream readers and a subscriber to its expression's reads. */
 internal class ComputedProperty<T>(private val expression: () -> T) :
-    Source(), Subscriber, ReadOnlyProperty<Any?, T> {
-    private val dependencies = Dependencies(this)
+    Source(), Reaction, ReadOnlyProperty<Any?, T> {
+    private val dependencies = ReactionDependencies(this)
     private var dirty = true
     private var evaluating = false
     private var cached: Any? = null
@@ -16,12 +16,12 @@ internal class ComputedProperty<T>(private val expression: () -> T) :
         // Reject cycles before registering the recursive read as another dependency.
         check(!evaluating) { "Computed dependency cycle at ${property.name}" }
         // Subscribe the enclosing consumer to this computed, not to its internals.
-        read()
+        onRead()
         if (dirty) {
             evaluating = true
             try {
                 try {
-                    cached = dependencies.collect(expression)
+                    cached = dependencies.trackReads(expression)
                     failure = null
                 } catch (error: Throwable) {
                     // Cache failures too. A later upstream change invalidates the failure
@@ -45,11 +45,13 @@ internal class ComputedProperty<T>(private val expression: () -> T) :
         return cached as T
     }
 
-    override fun invalidate() {
+    override fun recordRead(source: Source) = dependencies.recordRead(source)
+
+    override fun react() {
         // A dirty computed has already notified downstream consumers for this change.
         if (dirty) return
         dirty = true
-        changed()
+        notifySubscribers()
     }
 
     override fun onUnobserved() {

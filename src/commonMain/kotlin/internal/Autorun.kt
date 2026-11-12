@@ -1,14 +1,14 @@
 package ru.ought.kotx.internal
 
 /** A terminal graph consumer with an explicit lifetime controlled by its caller. */
-internal class Autorun(private val effect: () -> Unit) : Subscriber, AutoCloseable {
-    private val dependencies = Dependencies(this)
+internal class Autorun(private val effect: () -> Unit) : RunnableReaction, AutoCloseable {
+    private val dependencies = ReactionDependencies(this)
     private var disposed = false
 
-    fun run() {
+    override fun run() {
         if (disposed) return
         try {
-            dependencies.collect(effect)
+            dependencies.trackReads(effect)
         } finally {
             // An effect can close its own handle during a later execution. Its remaining
             // reads must not leave newly collected subscriptions behind.
@@ -16,15 +16,17 @@ internal class Autorun(private val effect: () -> Unit) : Subscriber, AutoCloseab
         }
     }
 
-    override fun invalidate() {
-        // Queue rather than execute here: computed invalidation must finish first.
-        if (!disposed) Runtime.schedule(this)
+    override fun recordRead(source: Source) = dependencies.recordRead(source)
+
+    override fun react() {
+        // Queue a run so Computeds can finish marking their caches stale first.
+        if (!disposed) Runtime.enqueueReaction(this)
     }
 
     override fun close() {
         // Remove queued work as well as subscriptions; a closed consumer never reruns.
         disposed = true
-        Runtime.cancel(this)
+        Runtime.removePendingReaction(this)
         dependencies.clear()
     }
 }

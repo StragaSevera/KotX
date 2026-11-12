@@ -1,43 +1,45 @@
 package ru.ought.kotx.internal
 
-/** Tracks the active consumer and coordinates invalidation before executing effects. */
+/** Routes reads to the active reaction and coordinates notifications and pending runs. */
 internal object Runtime {
     // Intentionally execution-global for this single-threaded JVM/JS prototype.
-    var collector: Dependencies? = null
-    private var propagationDepth = 0
-    private var draining = false
+    var activeReaction: Reaction? = null
+    private var notificationDepth = 0
+    private var runningPendingReactions = false
     // One reaction may be reached through several computed paths from a single write.
-    private val pending = linkedSetOf<Autorun>()
+    private val pendingReactions = linkedSetOf<RunnableReaction>()
 
-    fun schedule(reaction: Autorun) {
-        pending.add(reaction)
+    fun enqueueReaction(reaction: RunnableReaction) {
+        pendingReactions.add(reaction)
     }
 
-    fun cancel(reaction: Autorun) {
-        pending.remove(reaction)
+    fun removePendingReaction(reaction: RunnableReaction) {
+        pendingReactions.remove(reaction)
     }
 
-    fun propagate(block: () -> Unit) {
-        // A computed can invalidate further computeds. Only the outermost propagation
-        // drains effects, after every affected cache has been marked dirty.
-        propagationDepth++
+    fun notifyReactions(reactions: List<Reaction>) {
+        // A Computed can notify its own subscribers. Wait for the outermost
+        // notification to finish so all affected caches are stale before reactions run.
+        notificationDepth++
         try {
-            block()
+            reactions.forEach { it.react() }
         } finally {
-            propagationDepth--
-            if (propagationDepth == 0) drain()
+            notificationDepth--
+            if (notificationDepth == 0) runPendingReactions()
         }
     }
 
-    private fun drain() {
-        // Keep one drain loop in control if invalidation is nested during cleanup.
-        if (draining) return
-        draining = true
+    private fun runPendingReactions() {
+        // Future-proofing: a runnable reaction may eventually write outside read tracking
+        // (for example, an onChangeOf effect). If that write finishes notifying while
+        // this loop is running, leave any newly queued reactions for this loop to run.
+        if (runningPendingReactions) return
+        runningPendingReactions = true
         var failure: Throwable? = null
         try {
-            while (pending.isNotEmpty()) {
-                val reaction = pending.first()
-                pending.remove(reaction)
+            while (pendingReactions.isNotEmpty()) {
+                val reaction = pendingReactions.first()
+                pendingReactions.remove(reaction)
                 try {
                     reaction.run()
                 } catch (error: Throwable) {
@@ -47,7 +49,7 @@ internal object Runtime {
                 }
             }
         } finally {
-            draining = false
+            runningPendingReactions = false
         }
         failure?.let { throw it }
     }

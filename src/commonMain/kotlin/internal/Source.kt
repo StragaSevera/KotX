@@ -1,36 +1,28 @@
 package ru.ought.kotx.internal
 
-/** A graph consumer notified when a source may have changed. */
-internal interface Subscriber {
-    fun invalidate()
-}
-
 /** Shared subscription bookkeeping for observable properties and computed values. */
 internal open class Source {
-    private val subscribers = linkedSetOf<Subscriber>()
+    private val subscribers = linkedSetOf<Reaction>()
     protected val observed: Boolean get() = subscribers.isNotEmpty()
 
-    fun subscribe(subscriber: Subscriber) {
+    fun subscribe(subscriber: Reaction) {
         subscribers.add(subscriber)
     }
 
-    fun unsubscribe(subscriber: Subscriber) {
+    fun unsubscribe(subscriber: Reaction) {
         // Computed sources use this transition to release their upstream dependencies.
         if (subscribers.remove(subscriber) && subscribers.isEmpty()) onUnobserved()
     }
 
     protected open fun onUnobserved() = Unit
 
-    protected fun read() {
+    protected fun onRead() {
         // Outside a tracked evaluation, reading state does not establish a subscription.
-        Runtime.collector?.record(this)
+        Runtime.activeReaction?.recordRead(this)
     }
 
-    protected fun changed() {
-        // Propagate all invalidations before executing any effects.
-        Runtime.propagate {
-            // Effects can replace subscriptions later; traverse a stable subscriber set.
-            subscribers.toList().forEach { it.invalidate() }
-        }
+    protected fun notifySubscribers() {
+        // Take a snapshot so notifications traverse a stable set of subscribers.
+        Runtime.notifyReactions(subscribers.toList())
     }
 }
