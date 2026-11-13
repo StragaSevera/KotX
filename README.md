@@ -38,7 +38,8 @@ scope naturally owns the subscription.
 
 ### `observable(initial)`
 
-Creates a delegated mutable property. Reads made during a tracked evaluation
+Creates an `ObservableProperty<T>` handle with a mutable `.value` and writable
+property delegation. Reads made during a tracked evaluation
 establish a dependency. Assignments notify dependent Computeds and autoruns unless
 the new value is equal to the old value under Kotlin's `==`.
 
@@ -49,7 +50,7 @@ name = "Grace"
 
 ### `computed { expression }`
 
-Creates a lazy delegated read-only property. Its dependencies are discovered from
+Creates a lazy `PropertyView<T>` with a read-only `.value` and property delegation. Its dependencies are discovered from
 the observable and Computed properties read during each evaluation, so conditional
 dependencies can change over time.
 
@@ -65,6 +66,50 @@ val selected by computed {
 
 A Computed caches its result while it has subscribers. When it becomes unobserved,
 it releases upstream subscriptions; a later unobserved read evaluates it afresh.
+
+### Views and observable collections
+
+A View provides live read-only access without introducing a Computed. Mutable
+handles return a cached protected wrapper from `asView()`; a View returns itself.
+The specific interfaces are `PropertyView`, `ListView`, `MapView`, and `SetView`.
+
+```kotlin
+class Editor {
+    private val writableTitle = observable("Untitled")
+    private var titleValue by writableTitle
+    val title by writableTitle.asView()
+
+    private val writableTags = observableListOf<String>()
+    val tags = writableTags.asView()
+
+    fun rename(title: String) { titleValue = title }
+    fun addTag(tag: String) { writableTags.add(tag) }
+}
+```
+
+`observableListOf`, `observableMapOf`, and `observableSetOf` create standard mutable
+collections with whole-collection tracking. Maps and sets preserve insertion order.
+Reads through their Views, iterators, and other standard collection operations track
+the same source. Mutation through iterators, list ranges, map keys, values, and entries
+also notifies observers. Read-only wrappers protect those nested access paths too.
+Views are shallow: element fields remain writable and need their own observability.
+
+Bulk member operations such as `addAll`, `removeAll(Collection)`, `retainAll`, `putAll`,
+and `clear` notify once after completion. Partial changes before failure remain and
+are notified before the exception escapes. Standard library extensions that perform
+multiple member calls (for example, predicate removal or sorting) can notify for each
+call; there is no public Action API yet.
+
+Equal replacements store the new instance without notifying, for properties, list
+slots, and map values. As a deliberate consequence, observers may retain subscriptions
+to the old element's observable fields until another change causes reevaluation.
+Adding an existing set member or removing a missing item does not notify.
+
+Outside structural changes invalidate iterators and list ranges. Mutations through
+a range update its ancestors; sibling ranges can be invalidated. Collection equality
+and hashing use current contents, so a View's hash can change with its backing source.
+All access still requires a single thread. Writes during tracked evaluation are
+rejected even when they would be no-ops.
 
 ### `autorun { effect }`
 
@@ -161,7 +206,7 @@ Invalidating a Computed does not itself evaluate it or throw.
   failure changes.
 - Nested autoruns have independent lifetimes. Closing an outer autorun does not
   close an autorun created inside it.
-- Actions, configurable schedulers, reactions, observable collections, coroutine
+- Actions, configurable schedulers, reactions, coroutine
   integration, and React integration are not implemented yet.
 
 These are current implementation properties, not compatibility guarantees. The API
@@ -213,7 +258,8 @@ Do not use Kotest's infix assertion syntax.
 
 ## Source layout
 
-- `src/commonMain/kotlin/KotX.kt` contains the public API.
+- `src/commonMain/kotlin/` contains focused public API files; `KotX.kt` contains
+  the property and autorun factories.
 - `src/commonMain/kotlin/internal/` contains dependency tracking, subscription
   bookkeeping, Computed caching, autorun lifetime, and runtime coordination.
 - `src/commonTest/kotlin/api/` tests consumer-visible behavior through only the

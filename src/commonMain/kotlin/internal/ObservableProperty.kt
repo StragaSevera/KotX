@@ -1,22 +1,24 @@
 package ru.ought.kotx.internal
 
-import kotlin.properties.ReadWriteProperty
-import kotlin.reflect.KProperty
+import ru.ought.kotx.PropertyView
 
-/** Stores the value and participates in the graph through ordinary delegated access. */
-internal class ObservableProperty<T>(private var value: T) : Source(), ReadWriteProperty<Any?, T> {
-    override fun getValue(thisRef: Any?, property: KProperty<*>): T {
-        onRead()
-        return value
+internal class ObservableProperty<T>(initial: T) : Source(), ru.ought.kotx.ObservableProperty<T> {
+    private var storedValue = initial
+    private val view = object : PropertyView<T> {
+        override val value: T get() = this@ObservableProperty.value
     }
 
-    override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
-        // This prototype rejects feedback writes rather than supporting reaction loops
-        // or mutation during computed evaluation. Ordinary application writes are allowed.
-        check(Runtime.activeReaction == null) { "Observable writes during tracked evaluation are unsupported" }
-        if (this.value == value) return
-        this.value = value
-        // Publish the value before notifying consumers so synchronous reruns see it.
-        notifySubscribers()
-    }
+    override var value: T
+        get() {
+            onRead()
+            return storedValue
+        }
+        set(value) {
+            check(Runtime.activeReaction == null) { "Observable writes during tracked evaluation are unsupported" }
+            val changed = storedValue != value
+            storedValue = value
+            if (changed) notifySubscribers()
+        }
+
+    override fun asView(): PropertyView<T> = view
 }

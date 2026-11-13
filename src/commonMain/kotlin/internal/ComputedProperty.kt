@@ -1,7 +1,6 @@
 package ru.ought.kotx.internal
 
-import kotlin.properties.ReadOnlyProperty
-import kotlin.reflect.KProperty
+import ru.ought.kotx.PropertyView
 
 /**
  * A **lazy** derived property that tracks the sources read by its expression.
@@ -11,19 +10,20 @@ import kotlin.reflect.KProperty
  * autorun can make that read before the original write returns.
  */
 internal class ComputedProperty<T>(private val computation: () -> T) :
-    Source(), Reaction, ReadOnlyProperty<Any?, T> {
+    Source(), Reaction, PropertyView<T> {
     private val tracker = DependencyTracker(this)
     private var evaluating = false
     // An absent result is stale; a present result can hold a null value or a failure.
     private var cachedResult: Result<T>? = null
 
-    override fun getValue(thisRef: Any?, property: KProperty<*>): T {
-        // Reject cycles before registering the recursive read as another dependency.
-        check(!evaluating) { "Computed dependency cycle at ${property.name}" }
-        // Subscribe the enclosing consumer to this computed, not to its internals.
-        onRead()
-        return (cachedResult ?: evaluate()).getOrThrow()
-    }
+    override val value: T
+        get() {
+            // Reject cycles before registering the recursive read as another dependency.
+            check(!evaluating) { "Computed dependency cycle" }
+            // Subscribe the enclosing consumer to this computed, not to its internals.
+            onRead()
+            return (cachedResult ?: evaluate()).getOrThrow()
+        }
 
     private fun evaluate(): Result<T> {
         evaluating = true

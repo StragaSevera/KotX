@@ -1,18 +1,16 @@
 package ru.ought.kotx
 
-import kotlin.properties.ReadOnlyProperty
-import kotlin.properties.ReadWriteProperty
 import ru.ought.kotx.internal.Autorun
 import ru.ought.kotx.internal.AutorunErrorPolicy as InternalAutorunErrorPolicy
 import ru.ought.kotx.internal.ComputedProperty
-import ru.ought.kotx.internal.ObservableProperty
+import ru.ought.kotx.internal.ObservableProperty as ObservablePropertyImpl
 
 /**
  * A delegated mutable property whose reads are tracked by computed values and autoruns.
  * Assignments equal under Kotlin's `==` do not notify consumers.
  * This experimental runtime requires all state access to happen on one thread.
  */
-fun <T> observable(initial: T): ReadWriteProperty<Any?, T> = ObservableProperty(initial)
+fun <T> observable(initial: T): ObservableProperty<T> = ObservablePropertyImpl(initial)
 
 /**
  * A **lazy** derived property that discovers dependencies by tracking reads in [computation].
@@ -23,7 +21,7 @@ fun <T> observable(initial: T): ReadWriteProperty<Any?, T> = ObservableProperty(
  * Results are cached while observed; unobserved reads evaluate afresh so unused
  * computed values do not keep subscriptions alive. Expressions must not write state.
  */
-fun <T> computed(computation: () -> T): ReadOnlyProperty<Any?, T> = ComputedProperty(computation)
+fun <T> computed(computation: () -> T): PropertyView<T> = ComputedProperty(computation)
 
 /**
  * Runs [effect] immediately, then synchronously after its observable dependencies change.
