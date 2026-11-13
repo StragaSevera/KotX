@@ -6,6 +6,9 @@ internal object Runtime {
     var activeReaction: Reaction? = null
     private var notificationDepth = 0
     private var runningPendingReactions = false
+    private var globalReactionErrorHandler: ((Throwable) -> Unit)? = null
+    var scopedReactionErrorHandler: ((Throwable) -> Unit)? = null
+        private set
     // One reaction may be reached through several computed paths from a single write.
     private val pendingReactions = linkedSetOf<RunnableReaction>()
 
@@ -15,6 +18,41 @@ internal object Runtime {
 
     fun removePendingReaction(reaction: RunnableReaction) {
         pendingReactions.remove(reaction)
+    }
+
+    fun installReactionErrorHandler(effect: (Throwable) -> Unit): AutoCloseable {
+        check(globalReactionErrorHandler == null) { "A global reaction error handler is already installed" }
+        globalReactionErrorHandler = effect
+        return object : AutoCloseable {
+            private var closed = false
+
+            override fun close() {
+                if (closed) return
+                closed = true
+                if (globalReactionErrorHandler === effect) globalReactionErrorHandler = null
+            }
+        }
+    }
+
+    fun <T> withReactionErrorHandler(handler: (Throwable) -> Unit, block: () -> T): T {
+        val enclosing = scopedReactionErrorHandler
+        scopedReactionErrorHandler = handler
+        try {
+            return block()
+        } finally {
+            scopedReactionErrorHandler = enclosing
+        }
+    }
+
+    /** Reports an error when a global handler exists and returns whether it succeeded. */
+    fun reportReactionError(error: Throwable): Boolean {
+        val handler = globalReactionErrorHandler ?: return false
+        return try {
+            handler(error)
+            true
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     fun notifyReactions(reactions: List<Reaction>) {
@@ -41,10 +79,10 @@ internal object Runtime {
                 val reaction = pendingReactions.first()
                 pendingReactions.remove(reaction)
                 try {
+                    // Terminal reaction implementations contain user-code failures at
+                    // their own boundary; unexpected runtime failures remain visible.
                     reaction.run()
                 } catch (error: Throwable) {
-                    // One broken effect must not prevent other queued consumers updating.
-                    // Report the first error only after all pending effects were attempted.
                     if (failure == null) failure = error
                 }
             }
