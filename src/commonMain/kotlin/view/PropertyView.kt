@@ -1,4 +1,4 @@
-package ru.ought.kotx
+package ru.ought.kotx.view
 
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty

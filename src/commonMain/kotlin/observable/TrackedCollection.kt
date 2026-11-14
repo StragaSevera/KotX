@@ -1,4 +1,4 @@
-package ru.ought.kotx.internal
+package ru.ought.kotx.observable
 
 /** Mutation bookkeeping shared by sets and map collection views. */
 internal open class TrackedCollection<T>(

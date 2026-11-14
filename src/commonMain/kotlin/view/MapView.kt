@@ -1,4 +1,6 @@
-package ru.ought.kotx
+package ru.ought.kotx.view
+
+import ru.ought.kotx.observable.ObservableMap
 
 /** A live, shallow, read-only observable map, including protected entries. */
 interface MapView<K, out V> : Map<K, V> {

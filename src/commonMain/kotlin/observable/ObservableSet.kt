@@ -1,7 +1,7 @@
-package ru.ought.kotx
+package ru.ought.kotx.observable
 
-import ru.ought.kotx.internal.CollectionSource
-import ru.ought.kotx.internal.TrackedSet
+import ru.ought.kotx.view.ReadOnlySetView
+import ru.ought.kotx.view.SetView
 
 /** A single-threaded, insertion-ordered mutable set with whole-collection tracking. */
 interface ObservableSet<T> : MutableSet<T>, SetView<T> {

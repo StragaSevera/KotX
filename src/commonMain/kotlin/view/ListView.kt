@@ -1,4 +1,6 @@
-package ru.ought.kotx
+package ru.ought.kotx.view
+
+import ru.ought.kotx.observable.ObservableList
 
 /** A live, shallow, read-only observable list. */
 interface ListView<out T> : List<T> {

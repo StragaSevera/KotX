@@ -186,6 +186,54 @@ Computed evaluation errors are not handled independently. A direct Computed read
 throws to its caller; a read made by an autorun reaches that autorun's error boundary.
 Invalidating a Computed does not itself evaluate it or throw.
 
+## Experimental tracking protocol
+
+External libraries can implement `Source` and `Reaction`. A Reaction owns its reads
+and invalidation response. Sources must subscribe/unsubscribe idempotently using
+Reaction identity. Implementers own protocol correctness and cleanup; these extension
+interfaces can change before stabilization. All access remains single-threaded.
+
+`KotXRuntime.recordRead(source)` forwards a read to the active Reaction, or does
+nothing outside tracking. `KotXRuntime.withReaction(reaction) { ... }` selects that
+Reaction for synchronous reads, returns the block result, and restores the enclosing
+Reaction even when the block throws. It does not create subscriptions itself.
+
+A Reaction can use the optional `DependencyTracker`:
+
+```kotlin
+class IntegrationReaction : Reaction, AutoCloseable {
+    private val tracker = DependencyTracker(this)
+    override fun recordRead(source: Source) = tracker.recordRead(source)
+    override fun react() { /* Mark the integration's state stale. */ }
+    fun <T> track(block: () -> T): T = tracker.runAsActive(block)
+    override fun close() = tracker.clearSources()
+}
+```
+
+The tracker subscribes to reads, deduplicates sources by identity, and removes old
+dependencies after each evaluation. Failed evaluations retain reads made before the
+failure. Clear subscriptions on disposal. Reentrant use of one tracker is unsupported.
+Custom implementations can instead use scoped tracking and manage dependencies themselves.
+Tracking does not propagate through coroutine suspension. Observable writes remain
+forbidden while any Reaction is active.
+
+`SubscriptionSource` supplies identity-based subscription storage. Subclasses call
+`onRead()` from reads and `notifySubscribers()` after publishing new state. It is a
+public building block, as are `StoredObservableProperty` and `ComputedProperty`.
+
+`RunnableReaction` adds `run()`. Use `KotXRuntime.notifyReactions(...)` to coordinate
+invalidation, `enqueueReaction(...)` to request work, and `removePendingReaction(...)`
+to cancel it. Requests deduplicate by identity while pending. Notification finishes
+before queued work runs; requests outside notification run synchronously. Custom
+implementations own disposal and error handling. A failed invalidation does not skip
+other subscribers. Runs are drained even after a notification failure; failures escape
+to the caller. If notification and draining both fail, the draining failure escapes.
+
+`Autorun.start { ... }` returns a public managed `Autorun`, with the same initialization,
+error-policy overloads and disposal rules as `autorun`. Its constructor is private so
+initial execution and failed-start cleanup cannot be skipped. Framework-specific
+scheduling remains future work.
+
 ## Current semantics and limitations
 
 - All KotX state access must currently happen on one thread. The runtime is not yet
@@ -256,18 +304,35 @@ values.shouldContainExactly(expectedValues)
 
 Do not use Kotest's infix assertion syntax.
 
-## Source layout
+## Source layout and visibility
 
-- `src/commonMain/kotlin/` contains focused public API files; `KotX.kt` contains
-  the property and autorun factories.
-- `src/commonMain/kotlin/internal/` contains dependency tracking, subscription
-  bookkeeping, Computed caching, autorun lifetime, and runtime coordination.
-- `src/commonTest/kotlin/api/` tests consumer-visible behavior through only the
-  public KotX API.
-- `src/commonTest/kotlin/unit/` tests focused invariants of internal components.
+Packages follow responsibilities. Beneath `src/commonMain/kotlin/`:
 
-Kotlin source files deliberately omit package-directory nesting beneath the source
-roots. Files declare the `ru.ought.kotx` package directly.
+- `observable/`: writable property and collection types, factories, and storage.
+- `view/`: live read-only property and collection capabilities and their wrappers.
+- `tracking/`: Source, subscription storage, and dependency tracking.
+- `reaction/`: Reaction, RunnableReaction, Autorun, and error policies.
+- `computed/`: lazy Computed storage and evaluation.
+- `runtime/`: internal singleton coordination and private bookkeeping.
+
+The root package retains `observable`, `computed`, `autorun`, and the `KotXRuntime`
+facade. Collection factories are in `ru.ought.kotx.observable`; error handling is in
+`ru.ought.kotx.reaction`. Import named types from their responsibility packages.
+This is an intentional experimental package migration; old imports are not aliased.
+For example:
+
+```kotlin
+import ru.ought.kotx.observable.observableListOf
+import ru.ought.kotx.reaction.Autorun
+import ru.ought.kotx.tracking.SubscriptionSource
+```
+
+Reusable primitives are public when they have a coherent contract. Mutable bookkeeping
+is private. Collection implementation wrappers and mutation helpers remain internal,
+within their responsibility packages. No package is organized solely by visibility.
+
+Package directories omit the shared `ru/ought/kotx` prefix. Common tests cover public
+behavior in `api/` and focused runtime invariants in `unit/` on JVM and Node.js.
 
 The wider project goals and planned concurrency model are documented in the
 [project brief](../Docs/01.%20Project%20brief.md) in the parent workspace.

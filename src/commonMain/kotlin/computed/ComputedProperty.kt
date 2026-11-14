@@ -1,6 +1,10 @@
-package ru.ought.kotx.internal
+package ru.ought.kotx.computed
 
-import ru.ought.kotx.PropertyView
+import ru.ought.kotx.reaction.Reaction
+import ru.ought.kotx.tracking.DependencyTracker
+import ru.ought.kotx.tracking.Source
+import ru.ought.kotx.tracking.SubscriptionSource
+import ru.ought.kotx.view.PropertyView
 
 /**
  * A **lazy** derived property that tracks the sources read by its expression.
@@ -9,8 +13,8 @@ import ru.ought.kotx.PropertyView
  * notifies subscribers. Reevaluation happens only on the next read. A synchronous
  * autorun can make that read before the original write returns.
  */
-internal class ComputedProperty<T>(private val computation: () -> T) :
-    Source(), Reaction, PropertyView<T> {
+class ComputedProperty<T>(private val computation: () -> T) :
+    SubscriptionSource(), Reaction, PropertyView<T> {
     private val tracker = DependencyTracker(this)
     private var evaluating = false
     // An absent result is stale; a present result can hold a null value or a failure.

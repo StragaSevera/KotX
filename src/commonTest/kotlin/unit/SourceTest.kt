@@ -3,10 +3,11 @@ package ru.ought.kotx.unit
 import de.infix.testBalloon.framework.core.testSuite
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
-import ru.ought.kotx.internal.Reaction
-import ru.ought.kotx.internal.Source
+import ru.ought.kotx.reaction.Reaction
+import ru.ought.kotx.tracking.Source
+import ru.ought.kotx.tracking.SubscriptionSource
 
-private class ObservingSource : Source() {
+private class ObservingSource : SubscriptionSource() {
     var unobservedCount = 0
 
     fun notifyChanged() = notifySubscribers()

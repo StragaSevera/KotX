@@ -1,4 +1,4 @@
-package ru.ought.kotx
+package ru.ought.kotx.view
 
 /** A live, shallow, read-only observable set. */
 interface SetView<out T> : Set<T> {

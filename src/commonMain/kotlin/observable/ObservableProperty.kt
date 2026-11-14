@@ -1,7 +1,8 @@
-package ru.ought.kotx
+package ru.ought.kotx.observable
 
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
+import ru.ought.kotx.view.PropertyView
 
 /** A writable reactive handle, usable directly or as a property delegate. */
 interface ObservableProperty<T> : PropertyView<T>, ReadWriteProperty<Any?, T> {

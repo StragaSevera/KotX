@@ -5,6 +5,11 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import ru.ought.kotx.*
+import ru.ought.kotx.observable.*
+import ru.ought.kotx.view.*
+import ru.ought.kotx.tracking.*
+import ru.ought.kotx.reaction.*
+import ru.ought.kotx.computed.*
 
 @Suppress("unused")
 val KotXApiTests by testSuite {

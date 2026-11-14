@@ -1,6 +1,6 @@
-package ru.ought.kotx
+package ru.ought.kotx.reaction
 
-import ru.ought.kotx.internal.Runtime
+import ru.ought.kotx.runtime.Runtime
 
 /** Explicit handling for errors from reaction executions after their initial run. */
 enum class ReactionErrorPolicy {
@@ -25,24 +25,6 @@ class ReactionErrorHandler internal constructor(
         isClosed = true
         runtimeRegistration.close()
         onClosed(this)
-    }
-}
-
-/** Process-wide configuration for the KotX reactive runtime. */
-object KotXRuntime {
-    /** The active global handler, or null when no handler is installed. */
-    var currentReactionErrorHandler: ReactionErrorHandler? = null
-        private set
-
-    /**
-     * Installs the application-global handler for later reaction errors.
-     * Only one global handler may be installed at a time. It remains active until closed.
-     */
-    fun installReactionErrorHandler(effect: (Throwable) -> Unit): ReactionErrorHandler {
-        val runtimeHandler = Runtime.installReactionErrorHandler(effect)
-        return ReactionErrorHandler(effect, runtimeHandler) { closed ->
-            if (currentReactionErrorHandler === closed) currentReactionErrorHandler = null
-        }.also { currentReactionErrorHandler = it }
     }
 }
 

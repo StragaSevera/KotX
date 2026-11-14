@@ -1,8 +1,7 @@
-package ru.ought.kotx
+package ru.ought.kotx.observable
 
-import ru.ought.kotx.internal.CollectionSource
-import ru.ought.kotx.internal.TrackedCollection
-import ru.ought.kotx.internal.TrackedSet
+import ru.ought.kotx.view.MapView
+import ru.ought.kotx.view.ReadOnlyMapView
 
 /** A single-threaded, insertion-ordered mutable map with whole-collection tracking. */
 interface ObservableMap<K, V> : MutableMap<K, V>, MapView<K, V> {

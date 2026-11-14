@@ -1,6 +1,7 @@
-package ru.ought.kotx
+package ru.ought.kotx.observable
 
-import ru.ought.kotx.internal.CollectionSource
+import ru.ought.kotx.view.ListView
+import ru.ought.kotx.view.ReadOnlyListView
 
 /**
  * A mutable observable list with whole-collection tracking and shallow elements.

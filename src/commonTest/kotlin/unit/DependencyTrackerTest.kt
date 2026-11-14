@@ -3,12 +3,13 @@ package ru.ought.kotx.unit
 import de.infix.testBalloon.framework.core.testSuite
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
-import ru.ought.kotx.internal.DependencyTracker
-import ru.ought.kotx.internal.Reaction
-import ru.ought.kotx.internal.Runtime
-import ru.ought.kotx.internal.Source
+import ru.ought.kotx.tracking.DependencyTracker
+import ru.ought.kotx.reaction.Reaction
+import ru.ought.kotx.runtime.Runtime
+import ru.ought.kotx.tracking.Source
+import ru.ought.kotx.tracking.SubscriptionSource
 
-private class ReadableSource : Source() {
+private class ReadableSource : SubscriptionSource() {
     fun read() = onRead()
     fun notifyChanged() = notifySubscribers()
 }
@@ -73,7 +74,7 @@ val DependencyTrackerTests by testSuite {
 
         inner.reactionCount.shouldBe(1)
         outer.reactionCount.shouldBe(1)
-        Runtime.activeReaction.shouldBe(null)
+        Runtime.isTracking.shouldBe(false)
     }
 
     test("clearing sources removes every subscription") {

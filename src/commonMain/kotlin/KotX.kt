@@ -1,16 +1,18 @@
 package ru.ought.kotx
 
-import ru.ought.kotx.internal.Autorun
-import ru.ought.kotx.internal.AutorunErrorPolicy as InternalAutorunErrorPolicy
-import ru.ought.kotx.internal.ComputedProperty
-import ru.ought.kotx.internal.ObservableProperty as ObservablePropertyImpl
+import ru.ought.kotx.computed.ComputedProperty
+import ru.ought.kotx.observable.ObservableProperty
+import ru.ought.kotx.observable.StoredObservableProperty
+import ru.ought.kotx.reaction.Autorun
+import ru.ought.kotx.reaction.ReactionErrorPolicy
+import ru.ought.kotx.view.PropertyView
 
 /**
  * A delegated mutable property whose reads are tracked by computed values and autoruns.
  * Assignments equal under Kotlin's `==` do not notify consumers.
  * This experimental runtime requires all state access to happen on one thread.
  */
-fun <T> observable(initial: T): ObservableProperty<T> = ObservablePropertyImpl(initial)
+fun <T> observable(initial: T): ObservableProperty<T> = StoredObservableProperty(initial)
 
 /**
  * A **lazy** derived property that discovers dependencies by tracking reads in [computation].
@@ -29,26 +31,15 @@ fun <T> computed(computation: () -> T): PropertyView<T> = ComputedProperty(compu
  * Close the returned handle (or use `use {}`) to unsubscribe; closing is idempotent.
  * The effect may consume state but must not write observable properties.
  */
-fun autorun(effect: () -> Unit): AutoCloseable =
-    Autorun.start(effect, InternalAutorunErrorPolicy.Default)
+fun autorun(effect: () -> Unit): AutoCloseable = Autorun.start(effect)
 
 /**
  * Runs [effect] as an autorun with explicit error handling for executions after the first.
  * A null [onError] discards later errors and keeps the autorun subscribed.
  */
 fun autorun(onError: ((Throwable) -> Unit)?, effect: () -> Unit): AutoCloseable =
-    Autorun.start(
-        effect,
-        onError?.let { InternalAutorunErrorPolicy.Callbacks(listOf(it)) }
-            ?: InternalAutorunErrorPolicy.Ignore,
-    )
+    Autorun.start(onError, effect)
 
 /** Runs [effect] as an autorun using explicit later-execution error handling. */
 fun autorun(onError: ReactionErrorPolicy, effect: () -> Unit): AutoCloseable =
-    Autorun.start(
-        effect,
-        when (onError) {
-            ReactionErrorPolicy.Ignore -> InternalAutorunErrorPolicy.Ignore
-            ReactionErrorPolicy.Unsubscribe -> InternalAutorunErrorPolicy.Unsubscribe
-        },
-    )
+    Autorun.start(onError, effect)

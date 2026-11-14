@@ -1,19 +1,41 @@
-package ru.ought.kotx.internal
+package ru.ought.kotx.reaction
+
+import ru.ought.kotx.runtime.Runtime
+import ru.ought.kotx.tracking.DependencyTracker
+import ru.ought.kotx.tracking.Source
 
 /** A terminal graph consumer with an explicit lifetime controlled by its caller. */
-internal sealed interface AutorunErrorPolicy {
+private sealed interface AutorunErrorPolicy {
     data object Default : AutorunErrorPolicy
     data object Ignore : AutorunErrorPolicy
     data object Unsubscribe : AutorunErrorPolicy
     class Callbacks(val handlers: List<(Throwable) -> Unit>) : AutorunErrorPolicy
 }
 
-internal class Autorun private constructor(
+/**
+ * A managed terminal Reaction. Construct through [start] so initial failure releases
+ * subscriptions. Close to detach and cancel queued runs; closing is idempotent.
+ */
+class Autorun private constructor(
     private val effect: () -> Unit,
     private val errorPolicy: AutorunErrorPolicy,
 ) : RunnableReaction, AutoCloseable {
     companion object {
-        fun start(effect: () -> Unit, errorPolicy: AutorunErrorPolicy): AutoCloseable {
+        /** Starts synchronously using scoped/global error handling for later failures. */
+        fun start(effect: () -> Unit): Autorun = start(effect, AutorunErrorPolicy.Default)
+
+        /** A null callback ignores later failures; initial failures always escape. */
+        fun start(onError: ((Throwable) -> Unit)?, effect: () -> Unit): Autorun =
+            start(effect, onError?.let { AutorunErrorPolicy.Callbacks(listOf(it)) } ?: AutorunErrorPolicy.Ignore)
+
+        /** Starts with an explicit later-execution error policy. */
+        fun start(onError: ReactionErrorPolicy, effect: () -> Unit): Autorun =
+            start(effect, when (onError) {
+                ReactionErrorPolicy.Ignore -> AutorunErrorPolicy.Ignore
+                ReactionErrorPolicy.Unsubscribe -> AutorunErrorPolicy.Unsubscribe
+            })
+
+        private fun start(effect: () -> Unit, errorPolicy: AutorunErrorPolicy): Autorun {
             val scopedHandler = Runtime.scopedReactionErrorHandler
             val resolvedPolicy = when (errorPolicy) {
                 AutorunErrorPolicy.Default -> scopedHandler?.let {

@@ -1,23 +1,45 @@
-package ru.ought.kotx.internal
+package ru.ought.kotx.runtime
+
+import ru.ought.kotx.reaction.Reaction
+import ru.ought.kotx.reaction.RunnableReaction
+import ru.ought.kotx.tracking.DependencyTracker
+import ru.ought.kotx.tracking.Source
 
 /** Routes reads to the active reaction and coordinates notifications and pending runs. */
 internal object Runtime {
     // Intentionally execution-global for this single-threaded JVM/JS prototype.
-    var activeReaction: Reaction? = null
+    private var activeReaction: Reaction? = null
+    val isTracking: Boolean get() = activeReaction != null
+
+    fun recordRead(source: Source) {
+        activeReaction?.recordRead(source)
+    }
+
+    fun <T> withReaction(reaction: Reaction, block: () -> T): T {
+        val enclosing = activeReaction
+        activeReaction = reaction
+        try {
+            return block()
+        } finally {
+            activeReaction = enclosing
+        }
+    }
+
     private var notificationDepth = 0
     private var runningPendingReactions = false
     private var globalReactionErrorHandler: ((Throwable) -> Unit)? = null
     var scopedReactionErrorHandler: ((Throwable) -> Unit)? = null
         private set
     // One reaction may be reached through several computed paths from a single write.
-    private val pendingReactions = linkedSetOf<RunnableReaction>()
+    private val pendingReactions = mutableListOf<RunnableReaction>()
 
     fun enqueueReaction(reaction: RunnableReaction) {
-        pendingReactions.add(reaction)
+        if (pendingReactions.none { it === reaction }) pendingReactions.add(reaction)
+        if (notificationDepth == 0) runPendingReactions()
     }
 
     fun removePendingReaction(reaction: RunnableReaction) {
-        pendingReactions.remove(reaction)
+        pendingReactions.removeAll { it === reaction }
     }
 
     fun installReactionErrorHandler(effect: (Throwable) -> Unit): AutoCloseable {
@@ -60,7 +82,15 @@ internal object Runtime {
         // notification to finish so all affected caches are stale before reactions run.
         notificationDepth++
         try {
-            reactions.forEach { it.react() }
+            var failure: Throwable? = null
+            for (reaction in reactions) {
+                try {
+                    reaction.react()
+                } catch (error: Throwable) {
+                    if (failure == null) failure = error
+                }
+            }
+            failure?.let { throw it }
         } finally {
             notificationDepth--
             if (notificationDepth == 0) runPendingReactions()
@@ -77,7 +107,7 @@ internal object Runtime {
         try {
             while (pendingReactions.isNotEmpty()) {
                 val reaction = pendingReactions.first()
-                pendingReactions.remove(reaction)
+                pendingReactions.removeAt(0)
                 try {
                     // Terminal reaction implementations contain user-code failures at
                     // their own boundary; unexpected runtime failures remain visible.

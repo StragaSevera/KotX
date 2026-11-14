@@ -3,10 +3,11 @@ package ru.ought.kotx.unit
 import de.infix.testBalloon.framework.core.testSuite
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
-import ru.ought.kotx.internal.Reaction
-import ru.ought.kotx.internal.RunnableReaction
-import ru.ought.kotx.internal.Runtime
-import ru.ought.kotx.internal.Source
+import ru.ought.kotx.reaction.Reaction
+import ru.ought.kotx.reaction.RunnableReaction
+import ru.ought.kotx.runtime.Runtime
+import ru.ought.kotx.tracking.Source
+import ru.ought.kotx.tracking.SubscriptionSource
 
 private class CountingRunnableReaction(
     private val action: () -> Unit = {},
