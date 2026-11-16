@@ -6,11 +6,12 @@ import ru.ought.kotx.tracking.Source
 
 /**
  * A managed terminal Reaction. Construct through [start] so initial failure releases
- * subscriptions. Close to detach and cancel queued runs; closing is idempotent.
+ * subscriptions. Close to detach, cancel queued runs, and release captured callbacks;
+ * closing is idempotent.
  */
 class Autorun private constructor(
-    private val effect: () -> Unit,
-    private val errorHandler: ReactionErrorHandler,
+    effect: () -> Unit,
+    errorHandler: ReactionErrorHandler,
 ) : ExecutableReaction, AutoCloseable {
     companion object {
         /**
@@ -41,6 +42,8 @@ class Autorun private constructor(
         }
     }
 
+    private var effect: (() -> Unit)? = effect
+    private var errorHandler: ReactionErrorHandler? = errorHandler
     private val tracker = DependencyTracker(this)
     private var disposed = false
 
@@ -54,16 +57,19 @@ class Autorun private constructor(
 
     override fun execute() {
         if (disposed) return
+        // Keep the current execution's error policy even if its effect closes itself.
+        val handler = errorHandler ?: return
         try {
             doExecute()
         } catch (failure: Throwable) {
-            errorHandler.handle(failure, this)
+            handler.handle(failure, this)
         }
     }
 
     private fun doExecute() {
+        val currentEffect = effect ?: return
         try {
-            tracker.runAsActive(effect)
+            tracker.runAsActive(currentEffect)
         } finally {
             // An effect can close its own handle during a later execution. Its remaining
             // reads must not leave newly collected subscriptions behind.
@@ -74,6 +80,8 @@ class Autorun private constructor(
     override fun close() {
         // Remove queued work as well as subscriptions; a closed consumer never reruns.
         disposed = true
+        effect = null
+        errorHandler = null
         RuntimeEngine.removePendingReaction(this)
         tracker.clearSources()
     }

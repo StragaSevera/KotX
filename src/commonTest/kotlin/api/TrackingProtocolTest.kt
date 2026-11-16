@@ -3,12 +3,11 @@ package ru.ought.kotx.api
 import de.infix.testBalloon.framework.core.testSuite
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
-import ru.ought.kotx.*
-import ru.ought.kotx.observable.*
-import ru.ought.kotx.view.*
-import ru.ought.kotx.tracking.*
-import ru.ought.kotx.reaction.*
-import ru.ought.kotx.computed.*
+import ru.ought.kotx.KotXRuntime
+import ru.ought.kotx.observable
+import ru.ought.kotx.reaction.Reaction
+import ru.ought.kotx.tracking.DependencyTracker
+import ru.ought.kotx.tracking.Source
 
 private class ExternalSource : Source {
     val subscribers = mutableListOf<Reaction>()

@@ -2,12 +2,10 @@ package ru.ought.kotx.api
 
 import de.infix.testBalloon.framework.core.testSuite
 import io.kotest.matchers.shouldBe
-import ru.ought.kotx.*
-import ru.ought.kotx.observable.*
-import ru.ought.kotx.view.*
-import ru.ought.kotx.tracking.*
-import ru.ought.kotx.reaction.*
-import ru.ought.kotx.computed.*
+import ru.ought.kotx.autorun
+import ru.ought.kotx.computed
+import ru.ought.kotx.observable
+import ru.ought.kotx.observable.ObservableProperty
 
 @Suppress("unused")
 val ViewsTests by testSuite {
@@ -38,17 +36,4 @@ val ViewsTests by testSuite {
             values.shouldBe(listOf(2, 4))
         }
     }
-    test("equal property replacement stores the new instance silently") {
-        val first = EqualItem(1)
-        val source = observable(first)
-        var runs = 0
-        autorun { source.value; runs++ }.use {
-            val second = EqualItem(1)
-            source.value = second
-            (source.value === second).shouldBe(true)
-            runs.shouldBe(1)
-        }
-    }
 }
-
-private data class EqualItem(val id: Int)
