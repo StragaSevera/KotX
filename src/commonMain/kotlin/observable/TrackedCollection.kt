@@ -4,14 +4,13 @@ package ru.ought.kotx.observable
 internal open class TrackedCollection<T>(
     private val data: MutableCollection<T>,
     private val source: CollectionSource,
-    private val wrap: (T) -> T = { it },
 ) : AbstractMutableCollection<T>() {
     override val size: Int get() {
-        source.read()
+        source.recordRead()
         return data.size
     }
     override fun contains(element: T): Boolean {
-        source.read()
+        source.recordRead()
         return data.contains(element)
     }
     override fun add(element: T): Boolean = source.mutate { data.add(element).also { if (it) source.changed() } }
@@ -19,6 +18,7 @@ internal open class TrackedCollection<T>(
     override fun clear() = source.mutate { if (data.isNotEmpty()) { data.clear(); source.changed() } }
     override fun addAll(elements: Collection<T>): Boolean = source.mutate {
         var changed = false
+        // Snapshot first: the input may be this collection or another view of its storage.
         for (element in elements.toList()) if (add(element)) changed = true
         changed
     }
@@ -36,12 +36,12 @@ internal open class TrackedCollection<T>(
         changed
     }
     override fun iterator(): MutableIterator<T> {
-        source.read()
+        source.recordRead()
         val iterator = data.iterator()
         return object : MutableIterator<T> {
             private var expected = source.version
             private fun checkVersion() {
-                source.read()
+                source.recordRead()
                 if (expected != source.version) throw ConcurrentModificationException()
             }
             override fun hasNext(): Boolean {
@@ -50,28 +50,15 @@ internal open class TrackedCollection<T>(
             }
             override fun next(): T {
                 checkVersion()
-                return wrap(iterator.next())
+                return iterator.next()
             }
             override fun remove() = source.mutate {
                 checkVersion()
                 iterator.remove()
                 source.changed()
+                // This iterator remains valid after its own removal; other iterators do not.
                 expected = source.version
             }
         }
     }
-}
-
-internal class TrackedSet<T>(data: MutableSet<T>, source: CollectionSource, wrap: (T) -> T = { it }) :
-    AbstractMutableSet<T>() {
-    private val contents = TrackedCollection(data, source, wrap)
-    override val size: Int get() = contents.size
-    override fun contains(element: T) = contents.contains(element)
-    override fun iterator() = contents.iterator()
-    override fun add(element: T) = contents.add(element)
-    override fun addAll(elements: Collection<T>) = contents.addAll(elements)
-    override fun remove(element: T) = contents.remove(element)
-    override fun removeAll(elements: Collection<T>) = contents.removeAll(elements)
-    override fun retainAll(elements: Collection<T>) = contents.retainAll(elements)
-    override fun clear() = contents.clear()
 }

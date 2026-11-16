@@ -13,7 +13,7 @@ class StoredObservableProperty<T>(initial: T) : SubscriptionSource(), Observable
 
     override var value: T
         get() {
-            onRead()
+            recordRead()
             return storedValue
         }
         set(value) {

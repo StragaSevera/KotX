@@ -16,28 +16,28 @@ import ru.ought.kotx.view.PropertyView
 class ComputedProperty<T>(private val computation: () -> T) :
     SubscriptionSource(), Reaction, PropertyView<T> {
     private val tracker = DependencyTracker(this)
-    private var evaluating = false
+    private var computing = false
     // An absent result is stale; a present result can hold a null value or a failure.
     private var cachedResult: Result<T>? = null
 
     override val value: T
         get() {
             // Reject cycles before registering the recursive read as another dependency.
-            check(!evaluating) { "Computed dependency cycle" }
+            check(!computing) { "Computed dependency cycle" }
             // Subscribe the enclosing consumer to this computed, not to its internals.
-            onRead()
-            return (cachedResult ?: evaluate()).getOrThrow()
+            recordRead()
+            return (cachedResult ?: compute()).getOrThrow()
         }
 
-    private fun evaluate(): Result<T> {
-        evaluating = true
+    private fun compute(): Result<T> {
+        computing = true
         try {
             // Cache failures until a dependency changes, just like successful results.
             val result = runCatching { tracker.runAsActive(computation) }
             cachedResult = result
             return result
         } finally {
-            evaluating = false
+            computing = false
             // Return the result to this reader even if detaching discards the cache.
             if (!observed) onUnobserved()
         }

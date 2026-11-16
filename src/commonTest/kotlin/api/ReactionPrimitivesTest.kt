@@ -15,7 +15,7 @@ private class PublishedSource : SubscriptionSource() {
         private set
     val hasSubscribers: Boolean get() = observed
     fun read(): Int {
-        onRead()
+        recordRead()
         return value
     }
     fun write(value: Int) {

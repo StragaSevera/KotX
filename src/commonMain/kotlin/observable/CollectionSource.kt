@@ -10,13 +10,18 @@ internal class CollectionSource : SubscriptionSource() {
     private var depth = 0
     private var dirty = false
 
-    fun read() = onRead()
+    public override fun recordRead() = super.recordRead()
 
+    // Value replacements notify readers without invalidating iterator positions.
     fun changed(structural: Boolean = true) {
         if (structural) version++
         dirty = true
     }
 
+    /**
+     * Batches nested mutations of this source, including changes through its views.
+     * Changes are not rolled back: partial changes must notify even if the block throws.
+     */
     fun <T> mutate(block: () -> T): T {
         check(!RuntimeEngine.isTracking) { "Observable writes during tracked evaluation are unsupported" }
         depth++
@@ -25,6 +30,7 @@ internal class CollectionSource : SubscriptionSource() {
         } finally {
             depth--
             if (depth == 0 && dirty) {
+                // Clear before callbacks so reentrant mutations can record a new change.
                 dirty = false
                 notifySubscribers()
             }

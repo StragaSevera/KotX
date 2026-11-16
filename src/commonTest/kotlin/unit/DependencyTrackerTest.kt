@@ -10,7 +10,7 @@ import ru.ought.kotx.tracking.Source
 import ru.ought.kotx.tracking.SubscriptionSource
 
 private class ReadableSource : SubscriptionSource() {
-    fun read() = onRead()
+    fun read() = recordRead()
     fun notifyChanged() = notifySubscribers()
 }
 

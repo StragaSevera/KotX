@@ -383,3 +383,17 @@ A single leaked failure is rethrown directly.
 primitives. Library implementation uses the internal `RuntimeEngine`, which owns
 tracking state, notification snapshots, pending execution, and global error handling.
 Both entry points use the same operation names and notification semantics.
+
+Concrete collections can also be constructed directly:
+
+```kotlin
+val items = ObservableArrayList(listOf("first", "second"))
+val counts = ObservableLinkedHashMap(mapOf("first" to 1))
+val selected = ObservableLinkedHashSet(setOf("first"))
+```
+
+Each class also has an empty constructor. Constructors copy supplied collections;
+later changes to the input do not bypass observation. Backing storage and tracking
+remain private. The existing collection factories return the common observable
+interfaces. Array lists provide indexed storage; linked hash maps and sets preserve
+insertion order.

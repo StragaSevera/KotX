@@ -26,7 +26,7 @@ open class SubscriptionSource : Source {
 
     protected open fun onUnobserved() = Unit
 
-    protected fun onRead() {
+    protected open fun recordRead() {
         // Outside a tracked evaluation, reading state does not establish a subscription.
         RuntimeEngine.recordRead(this)
     }
