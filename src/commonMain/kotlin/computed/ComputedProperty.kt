@@ -25,7 +25,7 @@ class ComputedProperty<T>(private val computation: () -> T) :
             // Reject cycles before registering the recursive read as another dependency.
             check(!computing) { "Computed dependency cycle" }
             // Subscribe the enclosing consumer to this computed, not to its internals.
-            recordRead()
+            reportRead()
             return (cachedResult ?: compute()).getOrThrow()
         }
 
@@ -43,7 +43,7 @@ class ComputedProperty<T>(private val computation: () -> T) :
         }
     }
 
-    override fun recordRead(source: Source) = tracker.recordRead(source)
+    override fun recordDependency(source: Source) = tracker.recordDependency(source)
 
     override fun react() {
         // Once stale, further notifications needn't reach subscribers until a fresh read.

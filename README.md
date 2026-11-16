@@ -195,7 +195,7 @@ and invalidation response. Sources must subscribe/unsubscribe idempotently using
 Reaction identity. Implementers own protocol correctness and cleanup; these extension
 interfaces can change before stabilization. All access remains single-threaded.
 
-`KotXRuntime.recordRead(source)` forwards a read to the active Reaction, or does
+`KotXRuntime.reportRead(source)` forwards a read to the active Reaction, or does
 nothing outside tracking. `KotXRuntime.withReaction(reaction) { ... }` selects that
 Reaction for synchronous reads, returns the block result, and restores the enclosing
 Reaction even when the block throws. It does not create subscriptions itself.
@@ -205,7 +205,7 @@ A Reaction can use the optional `DependencyTracker`:
 ```kotlin
 class IntegrationReaction : Reaction, AutoCloseable {
     private val tracker = DependencyTracker(this)
-    override fun recordRead(source: Source) = tracker.recordRead(source)
+    override fun recordDependency(source: Source) = tracker.recordDependency(source)
     override fun react() { /* Mark the integration's state stale. */ }
     fun <T> track(block: () -> T): T = tracker.runAsActive(block)
     override fun close() = tracker.clearSources()
@@ -220,7 +220,7 @@ Tracking does not propagate through coroutine suspension. Observable writes rema
 forbidden while any Reaction is active.
 
 `SubscriptionSource` supplies identity-based subscription storage. Subclasses call
-`onRead()` from reads and `notifySubscribers()` after publishing new state. It is a
+`reportRead()` from reads and `notifySubscribers()` after publishing new state. It is a
 public building block, as are `StoredObservableProperty` and `ComputedProperty`.
 
 `ExecutableReaction` adds `execute()`. Use `KotXRuntime.notifyReactions(...)` to coordinate

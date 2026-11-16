@@ -10,7 +10,7 @@ import ru.ought.kotx.tracking.Source
 import ru.ought.kotx.tracking.SubscriptionSource
 
 private class ReadableSource : SubscriptionSource() {
-    fun read() = recordRead()
+    fun read() = reportRead()
     fun notifyChanged() = notifySubscribers()
 }
 
@@ -22,8 +22,8 @@ private class TrackingReaction : Reaction {
         reactionCount++
     }
 
-    override fun recordRead(source: Source) {
-        tracker.recordRead(source)
+    override fun recordDependency(source: Source) {
+        tracker.recordDependency(source)
     }
 }
 

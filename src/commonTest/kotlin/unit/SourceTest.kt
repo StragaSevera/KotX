@@ -25,7 +25,7 @@ private class CountingReaction(private val response: () -> Unit = {}) : Reaction
         response()
     }
 
-    override fun recordRead(source: Source) = Unit
+    override fun recordDependency(source: Source) = Unit
 }
 
 @Suppress("unused")

@@ -16,15 +16,15 @@ class ObservableLinkedHashMap<K, V>() : AbstractMutableMap<K, V>(), ObservableMa
     override fun asView(): MapView<K, V> = view
 
     override val size: Int get() {
-        source.recordRead()
+        source.reportRead()
         return data.size
     }
     override fun get(key: K): V? {
-        source.recordRead()
+        source.reportRead()
         return data[key]
     }
     override fun containsKey(key: K): Boolean {
-        source.recordRead()
+        source.reportRead()
         return data.containsKey(key)
     }
     // All views share the map source, so changes through any view notify map readers.

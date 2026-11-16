@@ -44,7 +44,7 @@ class Autorun private constructor(
     private val tracker = DependencyTracker(this)
     private var disposed = false
 
-    override fun recordRead(source: Source) = tracker.recordRead(source)
+    override fun recordDependency(source: Source) = tracker.recordDependency(source)
 
     override fun react() {
         // Queue a run instead of executing immediately,

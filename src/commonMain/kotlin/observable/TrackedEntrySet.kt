@@ -19,11 +19,11 @@ internal class TrackedEntrySet<K, V>(
     private fun wrapEntry(entry: MutableMap.MutableEntry<K, V>): MutableMap.MutableEntry<K, V> =
         object : MutableMap.MutableEntry<K, V> {
             override val key: K get() {
-                source.recordRead()
+                source.reportRead()
                 return entry.key
             }
             override val value: V get() {
-                source.recordRead()
+                source.reportRead()
                 return entry.value
             }
             override fun setValue(newValue: V): V = source.mutate {

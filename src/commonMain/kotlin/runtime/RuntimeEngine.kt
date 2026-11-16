@@ -12,8 +12,8 @@ internal object RuntimeEngine {
     private var activeReaction: Reaction? = null
     val isTracking: Boolean get() = activeReaction != null
 
-    fun recordRead(source: Source) {
-        activeReaction?.recordRead(source)
+    fun reportRead(source: Source) {
+        activeReaction?.recordDependency(source)
     }
 
     fun <T> withReaction(reaction: Reaction, block: () -> T): T {

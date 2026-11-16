@@ -15,7 +15,7 @@ private class PublishedSource : SubscriptionSource() {
         private set
     val hasSubscribers: Boolean get() = observed
     fun read(): Int {
-        recordRead()
+        reportRead()
         return value
     }
     fun write(value: Int) {
@@ -26,7 +26,7 @@ private class PublishedSource : SubscriptionSource() {
 
 private class PublicExecutable : ExecutableReaction {
     var runs = 0
-    override fun recordRead(source: Source) = Unit
+    override fun recordDependency(source: Source) = Unit
     override fun react() = KotXRuntime.enqueueReaction(this)
     override fun execute() { runs++ }
     override fun equals(other: Any?) = other is PublicExecutable
@@ -58,14 +58,14 @@ val ReactionPrimitivesTests by testSuite {
         val reactions = mutableListOf<Reaction>()
         val events = mutableListOf<String>()
         val first = object : Reaction {
-            override fun recordRead(source: Source) = Unit
+            override fun recordDependency(source: Source) = Unit
             override fun react() {
                 events.add("first")
                 reactions.clear()
             }
         }
         val second = object : Reaction {
-            override fun recordRead(source: Source) = Unit
+            override fun recordDependency(source: Source) = Unit
             override fun react() { events.add("second") }
         }
         reactions.addAll(listOf(first, second))
@@ -85,7 +85,7 @@ val ReactionPrimitivesTests by testSuite {
     test("public cancellation removes queued work before execution") {
         val pending = PublicExecutable()
         val canceller = object : Reaction {
-            override fun recordRead(source: Source) = Unit
+            override fun recordDependency(source: Source) = Unit
             override fun react() = KotXRuntime.removePendingReaction(pending)
         }
         KotXRuntime.notifyReactions(listOf(pending, canceller))
@@ -94,7 +94,7 @@ val ReactionPrimitivesTests by testSuite {
     test("all invalidations complete before public executable work starts") {
         val events = mutableListOf<String>()
         val executable = object : ExecutableReaction {
-            override fun recordRead(source: Source) = Unit
+            override fun recordDependency(source: Source) = Unit
             override fun react() {
                 events.add("first invalidated")
                 KotXRuntime.enqueueReaction(this)
@@ -102,7 +102,7 @@ val ReactionPrimitivesTests by testSuite {
             override fun execute() { events.add("execute") }
         }
         val second = object : Reaction {
-            override fun recordRead(source: Source) = Unit
+            override fun recordDependency(source: Source) = Unit
             override fun react() { events.add("second invalidated") }
         }
         KotXRuntime.notifyReactions(listOf(executable, second))
@@ -111,7 +111,7 @@ val ReactionPrimitivesTests by testSuite {
     test("custom invalidation failure does not skip remaining subscribers") {
         val healthy = PublicExecutable()
         val failing = object : Reaction {
-            override fun recordRead(source: Source) = Unit
+            override fun recordDependency(source: Source) = Unit
             override fun react() { error("invalidation failure") }
         }
         shouldThrow<IllegalStateException> {

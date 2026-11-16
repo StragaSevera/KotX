@@ -20,8 +20,7 @@ class ObservableArrayList<T> private constructor(
 
     override fun asView(): ListView<T> = view
 
-    private fun recordRead() {
-        source.recordRead()
+    private fun checkValid() {
         if (parent != null && expectedVersion != source.version) throw ConcurrentModificationException()
     }
 
@@ -37,15 +36,18 @@ class ObservableArrayList<T> private constructor(
     }
 
     override val size: Int get() {
-        recordRead()
+        source.reportRead()
+        checkValid()
         return data.size
     }
     override fun get(index: Int): T {
-        recordRead()
+        source.reportRead()
+        checkValid()
         return data[index]
     }
     override fun set(index: Int, element: T): T = source.mutate {
-        recordRead()
+        source.reportRead()
+        checkValid()
         val old = data[index]
         val different = old != element
         data[index] = element
@@ -53,7 +55,8 @@ class ObservableArrayList<T> private constructor(
         old
     }
     override fun add(index: Int, element: T) = source.mutate {
-        recordRead()
+        source.reportRead()
+        checkValid()
         data.add(index, element)
         changed()
     }
@@ -62,7 +65,8 @@ class ObservableArrayList<T> private constructor(
         true
     }
     override fun removeAt(index: Int): T = source.mutate {
-        recordRead()
+        source.reportRead()
+        checkValid()
         val old = data.removeAt(index)
         changed()
         old
@@ -76,7 +80,8 @@ class ObservableArrayList<T> private constructor(
     }
     override fun addAll(elements: Collection<T>): Boolean = source.mutate { addAll(size, elements) }
     override fun addAll(index: Int, elements: Collection<T>): Boolean = source.mutate {
-        recordRead()
+        source.reportRead()
+        checkValid()
         if (index !in 0..data.size) throw IndexOutOfBoundsException("Index: $index")
         // Snapshot aliases before inserting so adding this list or one of its views works.
         val incoming = elements.toList()
@@ -85,7 +90,8 @@ class ObservableArrayList<T> private constructor(
         incoming.isNotEmpty()
     }
     override fun clear() = source.mutate {
-        recordRead()
+        source.reportRead()
+        checkValid()
         if (data.isNotEmpty()) {
             data.clear()
             changed()
@@ -107,7 +113,8 @@ class ObservableArrayList<T> private constructor(
     override fun iterator(): MutableIterator<T> = listIterator()
     override fun listIterator(): MutableListIterator<T> = listIterator(0)
     override fun listIterator(index: Int): MutableListIterator<T> {
-        recordRead()
+        source.reportRead()
+        checkValid()
         if (index !in 0..size) throw IndexOutOfBoundsException()
         return object : MutableListIterator<T> {
             private var expected = source.version
@@ -115,7 +122,8 @@ class ObservableArrayList<T> private constructor(
             // Index returned by next/previous; reset after add/remove to forbid reuse.
             private var last = -1
             private fun checkVersion() {
-                recordRead()
+                source.reportRead()
+                checkValid()
                 if (expected != source.version) throw ConcurrentModificationException()
             }
             override fun hasNext(): Boolean {
@@ -167,7 +175,8 @@ class ObservableArrayList<T> private constructor(
         }
     }
     override fun subList(fromIndex: Int, toIndex: Int): ObservableList<T> {
-        recordRead()
+        source.reportRead()
+        checkValid()
         return ObservableArrayList(data.subList(fromIndex, toIndex), source, this)
     }
 }

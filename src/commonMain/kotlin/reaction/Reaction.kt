@@ -7,8 +7,8 @@ import ru.ought.kotx.tracking.Source
  * [DependencyTracker] is an optional helper. This protocol may change before stabilization.
  */
 interface Reaction {
-    /** Records a dependency read during a scoped synchronous evaluation. */
-    fun recordRead(source: Source)
+    /** Records a source as a dependency during a scoped synchronous evaluation. */
+    fun recordDependency(source: Source)
 
     /** Responds to possible change, without implying immediate reevaluation. */
     fun react()

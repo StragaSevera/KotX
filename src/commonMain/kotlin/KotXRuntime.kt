@@ -28,7 +28,7 @@ object KotXRuntime {
     fun removePendingReaction(reaction: ExecutableReaction) = RuntimeEngine.removePendingReaction(reaction)
 
     /** Reports a source read to the active Reaction; does nothing outside tracking. */
-    fun recordRead(source: Source) = RuntimeEngine.recordRead(source)
+    fun reportRead(source: Source) = RuntimeEngine.reportRead(source)
 
     /**
      * Routes synchronous reads to [reaction] for [block], restoring the enclosing

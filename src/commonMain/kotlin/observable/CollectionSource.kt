@@ -10,7 +10,7 @@ internal class CollectionSource : SubscriptionSource() {
     private var depth = 0
     private var dirty = false
 
-    public override fun recordRead() = super.recordRead()
+    public override fun reportRead() = super.reportRead()
 
     // Value replacements notify readers without invalidating iterator positions.
     fun changed(structural: Boolean = true) {

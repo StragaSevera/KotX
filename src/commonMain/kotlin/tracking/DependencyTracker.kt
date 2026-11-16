@@ -13,8 +13,8 @@ class DependencyTracker(private val owner: Reaction) {
     private var previousSubscriptions = mutableListOf<Source>()
     private var currentSubscriptions = mutableListOf<Source>()
 
-    /** Call from the owner's [Reaction.recordRead] implementation. */
-    fun recordRead(source: Source) {
+    /** Call from the owner's [Reaction.recordDependency] implementation. */
+    fun recordDependency(source: Source) {
         // Deduplicate by identity; value equality must not merge graph nodes.
         if (currentSubscriptions.none { it === source }) {
             currentSubscriptions.add(source)

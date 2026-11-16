@@ -18,7 +18,7 @@ private class ExternalSource : Source {
     override fun unsubscribe(reaction: Reaction) {
         subscribers.removeAll { it === reaction }
     }
-    fun read() = KotXRuntime.recordRead(this)
+    fun read() = KotXRuntime.reportRead(this)
     override fun equals(other: Any?) = other is ExternalSource
     override fun hashCode() = 0
 }
@@ -26,7 +26,7 @@ private class ExternalSource : Source {
 private class ExternalReaction : Reaction {
     val reads = mutableListOf<Source>()
     var invalidations = 0
-    override fun recordRead(source: Source) { reads.add(source) }
+    override fun recordDependency(source: Source) { reads.add(source) }
     override fun react() { invalidations++ }
     override fun equals(other: Any?) = other is ExternalReaction
     override fun hashCode() = 0
@@ -100,7 +100,7 @@ val TrackingProtocolTests by testSuite {
         val second = ExternalSource()
         val reaction = object : Reaction {
             val tracker = DependencyTracker(this)
-            override fun recordRead(source: Source) = tracker.recordRead(source)
+            override fun recordDependency(source: Source) = tracker.recordDependency(source)
             override fun react() = Unit
         }
         reaction.tracker.runAsActive {

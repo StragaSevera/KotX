@@ -6,11 +6,11 @@ internal open class TrackedCollection<T>(
     private val source: CollectionSource,
 ) : AbstractMutableCollection<T>() {
     override val size: Int get() {
-        source.recordRead()
+        source.reportRead()
         return data.size
     }
     override fun contains(element: T): Boolean {
-        source.recordRead()
+        source.reportRead()
         return data.contains(element)
     }
     override fun add(element: T): Boolean = source.mutate { data.add(element).also { if (it) source.changed() } }
@@ -36,12 +36,12 @@ internal open class TrackedCollection<T>(
         changed
     }
     override fun iterator(): MutableIterator<T> {
-        source.recordRead()
+        source.reportRead()
         val iterator = data.iterator()
         return object : MutableIterator<T> {
             private var expected = source.version
             private fun checkVersion() {
-                source.recordRead()
+                source.reportRead()
                 if (expected != source.version) throw ConcurrentModificationException()
             }
             override fun hasNext(): Boolean {

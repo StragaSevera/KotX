@@ -23,7 +23,7 @@ private class CountingExecutableReaction(
         action()
     }
 
-    override fun recordRead(source: Source) = Unit
+    override fun recordDependency(source: Source) = Unit
 }
 
 @Suppress("unused")
@@ -75,7 +75,7 @@ val RuntimeTests by testSuite {
                 RuntimeEngine.removePendingReaction(pending)
             }
 
-            override fun recordRead(source: Source) = Unit
+            override fun recordDependency(source: Source) = Unit
         }
 
         RuntimeEngine.notifyReactions(listOf(pending, remover))
