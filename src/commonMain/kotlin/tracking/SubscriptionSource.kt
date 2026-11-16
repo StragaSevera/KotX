@@ -1,8 +1,7 @@
 package ru.ought.kotx.tracking
 
-import ru.ought.kotx.KotXRuntime
+import ru.ought.kotx.runtime.RuntimeEngine
 import ru.ought.kotx.reaction.Reaction
-import ru.ought.kotx.runtime.Runtime
 
 /**
  * Reusable single-threaded Source with identity-based subscriptions and coordinated
@@ -29,11 +28,10 @@ open class SubscriptionSource : Source {
 
     protected fun onRead() {
         // Outside a tracked evaluation, reading state does not establish a subscription.
-        KotXRuntime.recordRead(this)
+        RuntimeEngine.recordRead(this)
     }
 
     protected fun notifySubscribers() {
-        // Take a snapshot so notifications traverse a stable set of subscribers.
-        Runtime.notifyReactions(subscribers.toList())
+        RuntimeEngine.notifyReactions(subscribers)
     }
 }

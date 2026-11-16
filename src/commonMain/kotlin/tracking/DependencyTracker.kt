@@ -1,6 +1,6 @@
 package ru.ought.kotx.tracking
 
-import ru.ought.kotx.KotXRuntime
+import ru.ought.kotx.runtime.RuntimeEngine
 import ru.ought.kotx.reaction.Reaction
 
 /**
@@ -29,7 +29,7 @@ class DependencyTracker(private val owner: Reaction) {
     fun <T> runAsActive(block: () -> T): T {
         currentSubscriptions = mutableListOf()
         try {
-            return KotXRuntime.withReaction(owner, block)
+            return RuntimeEngine.withReaction(owner, block)
         } finally {
             // Unsubscribe from obsolete branches.
             // On failure, current contains the reads made before the exception.

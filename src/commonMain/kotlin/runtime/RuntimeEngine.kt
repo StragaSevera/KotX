@@ -7,7 +7,7 @@ import ru.ought.kotx.reaction.ExecutableReaction
 import ru.ought.kotx.tracking.Source
 
 /** Routes reads to the active reaction and coordinates notifications and pending runs. */
-internal object Runtime {
+internal object RuntimeEngine {
     // Intentionally execution-global for this single-threaded JVM/JS prototype.
     private var activeReaction: Reaction? = null
     val isTracking: Boolean get() = activeReaction != null
@@ -41,12 +41,13 @@ internal object Runtime {
 
     private var notificationDepth = 0
     fun notifyReactions(reactions: List<Reaction>) {
+        val snapshot = reactions.toList()
         // A ComputedProperty can notify its own subscribers. Wait for the outermost
         // notification to finish so all affected caches are stale before reactions run.
         notificationDepth++
         try {
             var failure: Throwable? = null
-            for (reaction in reactions) {
+            for (reaction in snapshot) {
                 try {
                     reaction.react()
                 } catch (error: Throwable) {
@@ -64,12 +65,12 @@ internal object Runtime {
     // One reaction may be reached through several computed paths from a single write.
     private val pendingExecutables = mutableListOf<ExecutableReaction>()
 
-    fun enqueueExecutable(reaction: ExecutableReaction) {
+    fun enqueueReaction(reaction: ExecutableReaction) {
         if (pendingExecutables.none { it === reaction }) pendingExecutables.add(reaction)
         if (notificationDepth == 0) executePending()
     }
 
-    fun dequeueExecutable(reaction: ExecutableReaction) {
+    fun removePendingReaction(reaction: ExecutableReaction) {
         pendingExecutables.removeAll { it === reaction }
     }
 

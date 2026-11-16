@@ -1,6 +1,6 @@
 package ru.ought.kotx.observable
 
-import ru.ought.kotx.runtime.Runtime
+import ru.ought.kotx.runtime.RuntimeEngine
 import ru.ought.kotx.tracking.SubscriptionSource
 
 /** Shared by a collection and all its mutable ranges and views. */
@@ -18,7 +18,7 @@ internal class CollectionSource : SubscriptionSource() {
     }
 
     fun <T> mutate(block: () -> T): T {
-        check(!Runtime.isTracking) { "Observable writes during tracked evaluation are unsupported" }
+        check(!RuntimeEngine.isTracking) { "Observable writes during tracked evaluation are unsupported" }
         depth++
         try {
             return block()

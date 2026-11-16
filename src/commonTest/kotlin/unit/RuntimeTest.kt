@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 import ru.ought.kotx.reaction.Reaction
 import ru.ought.kotx.reaction.ReactionExecutionException
 import ru.ought.kotx.reaction.ExecutableReaction
-import ru.ought.kotx.runtime.Runtime
+import ru.ought.kotx.runtime.RuntimeEngine
 import ru.ought.kotx.tracking.Source
 
 private class CountingExecutableReaction(
@@ -15,7 +15,7 @@ private class CountingExecutableReaction(
     var runCount = 0
 
     override fun react() {
-        Runtime.enqueueExecutable(this)
+        RuntimeEngine.enqueueReaction(this)
     }
 
     override fun execute() {
@@ -31,7 +31,7 @@ val RuntimeTests by testSuite {
     test("one notification wave queues a executable reaction once") {
         val reaction = CountingExecutableReaction()
 
-        Runtime.notifyReactions(listOf(reaction, reaction))
+        RuntimeEngine.notifyReactions(listOf(reaction, reaction))
 
         reaction.runCount.shouldBe(1)
     }
@@ -41,7 +41,7 @@ val RuntimeTests by testSuite {
         val healthy = CountingExecutableReaction()
 
         shouldThrow<IllegalStateException> {
-            Runtime.notifyReactions(listOf(failure, healthy))
+            RuntimeEngine.notifyReactions(listOf(failure, healthy))
         }
 
         failure.runCount.shouldBe(1)
@@ -56,7 +56,7 @@ val RuntimeTests by testSuite {
         val healthy = CountingExecutableReaction()
 
         val failure = shouldThrow<ReactionExecutionException> {
-            Runtime.notifyReactions(listOf(first, second, healthy))
+            RuntimeEngine.notifyReactions(listOf(first, second, healthy))
         }
 
         failure.failures.shouldBe(listOf(firstError, secondError))
@@ -64,7 +64,7 @@ val RuntimeTests by testSuite {
         failure.suppressedExceptions.shouldBe(listOf(secondError))
         healthy.runCount.shouldBe(1)
 
-        Runtime.enqueueExecutable(healthy)
+        RuntimeEngine.enqueueReaction(healthy)
         healthy.runCount.shouldBe(2)
     }
 
@@ -72,13 +72,13 @@ val RuntimeTests by testSuite {
         val pending = CountingExecutableReaction()
         val remover = object : Reaction {
             override fun react() {
-                Runtime.dequeueExecutable(pending)
+                RuntimeEngine.removePendingReaction(pending)
             }
 
             override fun recordRead(source: Source) = Unit
         }
 
-        Runtime.notifyReactions(listOf(pending, remover))
+        RuntimeEngine.notifyReactions(listOf(pending, remover))
 
         pending.runCount.shouldBe(0)
     }
@@ -86,10 +86,10 @@ val RuntimeTests by testSuite {
     test("work queued while draining is run by the same drain loop") {
         val second = CountingExecutableReaction()
         val first = CountingExecutableReaction {
-            Runtime.notifyReactions(listOf(second))
+            RuntimeEngine.notifyReactions(listOf(second))
         }
 
-        Runtime.notifyReactions(listOf(first))
+        RuntimeEngine.notifyReactions(listOf(first))
 
         first.runCount.shouldBe(1)
         second.runCount.shouldBe(1)

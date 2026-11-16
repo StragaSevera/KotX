@@ -1,6 +1,6 @@
 package ru.ought.kotx.reaction
 
-import ru.ought.kotx.runtime.Runtime
+import ru.ought.kotx.runtime.RuntimeEngine
 import ru.ought.kotx.tracking.DependencyTracker
 import ru.ought.kotx.tracking.Source
 
@@ -49,7 +49,7 @@ class Autorun private constructor(
     override fun react() {
         // Queue a run instead of executing immediately,
         // so Computeds can finish marking their caches stale first.
-        if (!disposed) Runtime.enqueueExecutable(this)
+        if (!disposed) RuntimeEngine.enqueueReaction(this)
     }
 
     override fun execute() {
@@ -74,7 +74,7 @@ class Autorun private constructor(
     override fun close() {
         // Remove queued work as well as subscriptions; a closed consumer never reruns.
         disposed = true
-        Runtime.dequeueExecutable(this)
+        RuntimeEngine.removePendingReaction(this)
         tracker.clearSources()
     }
 }

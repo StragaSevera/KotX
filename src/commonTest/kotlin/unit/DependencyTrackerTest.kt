@@ -5,7 +5,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import ru.ought.kotx.tracking.DependencyTracker
 import ru.ought.kotx.reaction.Reaction
-import ru.ought.kotx.runtime.Runtime
+import ru.ought.kotx.runtime.RuntimeEngine
 import ru.ought.kotx.tracking.Source
 import ru.ought.kotx.tracking.SubscriptionSource
 
@@ -74,7 +74,7 @@ val DependencyTrackerTests by testSuite {
 
         inner.reactionCount.shouldBe(1)
         outer.reactionCount.shouldBe(1)
-        Runtime.isTracking.shouldBe(false)
+        RuntimeEngine.isTracking.shouldBe(false)
     }
 
     test("clearing sources removes every subscription") {

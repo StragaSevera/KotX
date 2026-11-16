@@ -54,6 +54,27 @@ val ReactionPrimitivesTests by testSuite {
         }
         source.hasSubscribers.shouldBe(false)
     }
+    test("public notifications retain their snapshot when a callback changes the input") {
+        val reactions = mutableListOf<Reaction>()
+        val events = mutableListOf<String>()
+        val first = object : Reaction {
+            override fun recordRead(source: Source) = Unit
+            override fun react() {
+                events.add("first")
+                reactions.clear()
+            }
+        }
+        val second = object : Reaction {
+            override fun recordRead(source: Source) = Unit
+            override fun react() { events.add("second") }
+        }
+        reactions.addAll(listOf(first, second))
+
+        KotXRuntime.notifyReactions(reactions)
+
+        events.shouldBe(listOf("first", "second"))
+    }
+
     test("public queue distinguishes equal executable reactions by identity") {
         val first = PublicExecutable()
         val second = PublicExecutable()

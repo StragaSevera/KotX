@@ -355,7 +355,7 @@ explicit internal context containing the handler retained by each autorun.
 
 `withReactionErrorHandler` supplies a `ReactionScope` receiver. Direct `autorun`
 calls in its block use the receiver's helpers and retain its handler; nested scopes
-use their own handler. No ambient scoped handler is stored in Runtime.
+use their own handler. No ambient scoped handler is stored in RuntimeEngine.
 Ordinary functions called from the block do not inherit the receiver. To share the
 scope with a helper, declare it as a `ReactionScope` extension and call its member
 `autorun`. Top-level `autorun` and `Autorun.start` use default global handling.
@@ -377,3 +377,9 @@ When multiple queued reactions leak execution failures, the runtime finishes the
 and throws `ReactionExecutionException`. Its `failures` list preserves execution order;
 the first failure is the cause and the remaining failures are suppressed exceptions.
 A single leaked failure is rethrown directly.
+
+
+`KotXRuntime` is the public interface for runtime configuration and custom reactive
+primitives. Library implementation uses the internal `RuntimeEngine`, which owns
+tracking state, notification snapshots, pending execution, and global error handling.
+Both entry points use the same operation names and notification semantics.
