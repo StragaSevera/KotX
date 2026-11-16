@@ -223,7 +223,7 @@ forbidden while any Reaction is active.
 `onRead()` from reads and `notifySubscribers()` after publishing new state. It is a
 public building block, as are `StoredObservableProperty` and `ComputedProperty`.
 
-`RunnableReaction` adds `run()`. Use `KotXRuntime.notifyReactions(...)` to coordinate
+`ExecutableReaction` adds `execute()`. Use `KotXRuntime.notifyReactions(...)` to coordinate
 invalidation, `enqueueReaction(...)` to request work, and `removePendingReaction(...)`
 to cancel it. Requests deduplicate by identity while pending. Notification finishes
 before queued work runs; requests outside notification run synchronously. Custom
@@ -313,7 +313,7 @@ Packages follow responsibilities. Beneath `src/commonMain/kotlin/`:
 - `observable/`: writable property and collection types, factories, and storage.
 - `view/`: live read-only property and collection capabilities and their wrappers.
 - `tracking/`: Source, subscription storage, and dependency tracking.
-- `reaction/`: Reaction, RunnableReaction, Autorun, and error policies.
+- `reaction/`: Reaction, ExecutableReaction, Autorun, and error policies.
 - `computed/`: lazy Computed storage and evaluation.
 - `runtime/`: internal singleton coordination and private bookkeeping.
 
@@ -371,3 +371,9 @@ val handler = ReactionErrorHandler { error, subscription ->
 KotXRuntime.setGlobalErrorHandler(handler)
 KotXRuntime.removeGlobalErrorHandler() // Removes the handler; does not close reactions.
 ```
+
+
+When multiple queued reactions leak execution failures, the runtime finishes the queue
+and throws `ReactionExecutionException`. Its `failures` list preserves execution order;
+the first failure is the cause and the remaining failures are suppressed exceptions.
+A single leaked failure is rethrown directly.

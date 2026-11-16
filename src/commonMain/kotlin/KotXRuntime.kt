@@ -1,6 +1,6 @@
 package ru.ought.kotx
 
-import ru.ought.kotx.reaction.RunnableReaction
+import ru.ought.kotx.reaction.ExecutableReaction
 import ru.ought.kotx.reaction.Reaction
 import ru.ought.kotx.reaction.ReactionErrorHandler
 import ru.ought.kotx.runtime.Runtime
@@ -19,10 +19,10 @@ object KotXRuntime {
      * Queues by identity during notification; otherwise runs synchronously.
      * Repeated requests before execution coalesce. Runs must manage their own errors.
      */
-    fun enqueueReaction(reaction: RunnableReaction) = Runtime.enqueueReaction(reaction)
+    fun enqueueReaction(reaction: ExecutableReaction) = Runtime.enqueueExecutable(reaction)
 
     /** Cancels pending work by identity. Already executing work cannot be cancelled. */
-    fun removePendingReaction(reaction: RunnableReaction) = Runtime.removePendingReaction(reaction)
+    fun removePendingReaction(reaction: ExecutableReaction) = Runtime.dequeueExecutable(reaction)
 
     /** Reports a source read to the active Reaction; does nothing outside tracking. */
     fun recordRead(source: Source) = Runtime.recordRead(source)
