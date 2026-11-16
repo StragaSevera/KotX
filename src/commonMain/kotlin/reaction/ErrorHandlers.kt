@@ -1,9 +1,13 @@
 package ru.ought.kotx.reaction
 
-import ru.ought.kotx.runtime.Runtime
-
 /** Explicit handling for errors from reaction executions after their initial run. */
 enum class ReactionErrorPolicy {
+    /**
+     * Bypass the scope handler and use the current global handler on each later failure.
+     * Unsubscribe if no global handler exists or it throws.
+     */
+    Global,
+
     /** Discard the error and keep the reaction subscribed. */
     Ignore,
 
@@ -11,26 +15,18 @@ enum class ReactionErrorPolicy {
     Unsubscribe,
 }
 
-/** The currently installed global reaction error handler and its lifetime. */
-class ReactionErrorHandler internal constructor(
-    val effect: (Throwable) -> Unit,
-    private val runtimeRegistration: AutoCloseable,
-    private val onClosed: (ReactionErrorHandler) -> Unit,
-) : AutoCloseable {
-    var isClosed: Boolean = false
-        private set
-
-    override fun close() {
-        if (isClosed) return
-        isClosed = true
-        runtimeRegistration.close()
-        onClosed(this)
-    }
+/** Handles a later reaction failure; close [subscription] to unsubscribe that reaction. */
+fun interface ReactionErrorHandler {
+    fun handle(error: Throwable, subscription: AutoCloseable)
 }
 
 /**
- * Associates [handler] with default-policy autoruns created synchronously inside [block].
- * Those autoruns retain this handler after [block] returns.
+ * Supplies a receiver whose autorun helpers retain [handler] after [block] returns.
+ * Ordinary helper functions do not inherit this receiver's error handling.
  */
-fun <T> withReactionErrorHandler(handler: (Throwable) -> Unit, block: () -> T): T =
-    Runtime.withReactionErrorHandler(handler, block)
+fun <T> withReactionErrorHandler(handler: (Throwable) -> Unit, block: ReactionScope.() -> T): T =
+    withReactionErrorHandler({ error, _ -> handler(error) }, block)
+
+/** Supplies a scope with a handler that can selectively unsubscribe reactions. */
+fun <T> withReactionErrorHandler(handler: ReactionErrorHandler, block: ReactionScope.() -> T): T =
+    ReactionScope(handler).block()

@@ -35,18 +35,17 @@ object KotXRuntime {
     fun <T> withReaction(reaction: Reaction, block: () -> T): T =
         Runtime.withReaction(reaction, block)
 
-    /** The active global handler, or null when no handler is installed. */
-    var currentReactionErrorHandler: ReactionErrorHandler? = null
-        private set
+    /** The current application-global fallback for later reaction failures. */
+    val globalErrorHandler: ReactionErrorHandler?
+        get() = Runtime.globalErrorHandler
 
-    /**
-     * Installs the application-global handler for later reaction errors.
-     * Only one global handler may be installed at a time. It remains active until closed.
-     */
-    fun installReactionErrorHandler(effect: (Throwable) -> Unit): ReactionErrorHandler {
-        val runtimeHandler = Runtime.installReactionErrorHandler(effect)
-        return ReactionErrorHandler(effect, runtimeHandler) { closed ->
-            if (currentReactionErrorHandler === closed) currentReactionErrorHandler = null
-        }.also { currentReactionErrorHandler = it }
+    /** Sets or replaces the global handler, including for existing reactions. */
+    fun setGlobalErrorHandler(handler: ReactionErrorHandler) {
+        Runtime.globalErrorHandler = handler
+    }
+
+    /** Removes the global handler without closing existing reactions. */
+    fun removeGlobalErrorHandler() {
+        Runtime.globalErrorHandler = null
     }
 }

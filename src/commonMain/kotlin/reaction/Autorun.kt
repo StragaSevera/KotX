@@ -4,49 +4,32 @@ import ru.ought.kotx.runtime.Runtime
 import ru.ought.kotx.tracking.DependencyTracker
 import ru.ought.kotx.tracking.Source
 
-/** A terminal graph consumer with an explicit lifetime controlled by its caller. */
-private sealed interface AutorunErrorPolicy {
-    data object Default : AutorunErrorPolicy
-    data object Ignore : AutorunErrorPolicy
-    data object Unsubscribe : AutorunErrorPolicy
-    class Callbacks(val handlers: List<(Throwable) -> Unit>) : AutorunErrorPolicy
-}
-
 /**
  * A managed terminal Reaction. Construct through [start] so initial failure releases
  * subscriptions. Close to detach and cancel queued runs; closing is idempotent.
  */
 class Autorun private constructor(
     private val effect: () -> Unit,
-    private val errorPolicy: AutorunErrorPolicy,
+    private val errorHandler: ReactionErrorHandler,
 ) : RunnableReaction, AutoCloseable {
     companion object {
-        /** Starts synchronously using scoped/global error handling for later failures. */
-        fun start(effect: () -> Unit): Autorun = start(effect, AutorunErrorPolicy.Default)
+        /**
+         * Starts immediately; initial failures unsubscribe and escape.
+         * Later failures use the current global error handler. Without a handler, or if
+         * it throws, the autorun unsubscribes. Later failures do not escape.
+         */
+        fun start(effect: () -> Unit): Autorun = start(ReactionContext.defaultHandler(), effect)
 
-        /** A null callback ignores later failures; initial failures always escape. */
+        /** Handles later failures; null ignores them. */
         fun start(onError: ((Throwable) -> Unit)?, effect: () -> Unit): Autorun =
-            start(effect, onError?.let { AutorunErrorPolicy.Callbacks(listOf(it)) } ?: AutorunErrorPolicy.Ignore)
+            start(ReactionContext.errorHandler(onError), effect)
 
-        /** Starts with an explicit later-execution error policy. */
+        /** Applies the policy to later failures. */
         fun start(onError: ReactionErrorPolicy, effect: () -> Unit): Autorun =
-            start(effect, when (onError) {
-                ReactionErrorPolicy.Ignore -> AutorunErrorPolicy.Ignore
-                ReactionErrorPolicy.Unsubscribe -> AutorunErrorPolicy.Unsubscribe
-            })
+            start(ReactionContext.errorHandler(onError), effect)
 
-        private fun start(effect: () -> Unit, errorPolicy: AutorunErrorPolicy): Autorun {
-            val scopedHandler = Runtime.scopedReactionErrorHandler
-            val resolvedPolicy = when (errorPolicy) {
-                AutorunErrorPolicy.Default -> scopedHandler?.let {
-                    AutorunErrorPolicy.Callbacks(listOf(it))
-                } ?: AutorunErrorPolicy.Default
-                is AutorunErrorPolicy.Callbacks -> scopedHandler?.let {
-                    AutorunErrorPolicy.Callbacks(errorPolicy.handlers + it)
-                } ?: errorPolicy
-                else -> errorPolicy
-            }
-            val autorun = Autorun(effect, resolvedPolicy)
+        internal fun start(context: ReactionContext, effect: () -> Unit): Autorun {
+            val autorun = Autorun(effect, context.errorHandler)
             try {
                 autorun.evaluate()
                 return autorun
@@ -66,7 +49,7 @@ class Autorun private constructor(
         try {
             evaluate()
         } catch (failure: Throwable) {
-            handleFailure(failure)
+            errorHandler.handle(failure, this)
         }
     }
 
@@ -77,29 +60,6 @@ class Autorun private constructor(
             // An effect can close its own handle during a later execution. Its remaining
             // reads must not leave newly collected subscriptions behind.
             if (disposed) tracker.clearSources()
-        }
-    }
-
-    private fun handleFailure(failure: Throwable) {
-        when (val policy = errorPolicy) {
-            AutorunErrorPolicy.Default -> {
-                if (!Runtime.reportReactionError(failure)) close()
-            }
-            AutorunErrorPolicy.Ignore -> Unit
-            AutorunErrorPolicy.Unsubscribe -> close()
-            is AutorunErrorPolicy.Callbacks -> {
-                var error = failure
-                for (handler in policy.handlers) {
-                    try {
-                        handler(error)
-                        return
-                    } catch (handlerFailure: Throwable) {
-                        close()
-                        error = handlerFailure
-                    }
-                }
-                Runtime.reportReactionError(error)
-            }
         }
     }
 

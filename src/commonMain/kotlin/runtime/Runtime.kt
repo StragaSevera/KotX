@@ -1,8 +1,8 @@
 package ru.ought.kotx.runtime
 
 import ru.ought.kotx.reaction.Reaction
+import ru.ought.kotx.reaction.ReactionErrorHandler
 import ru.ought.kotx.reaction.RunnableReaction
-import ru.ought.kotx.tracking.DependencyTracker
 import ru.ought.kotx.tracking.Source
 
 /** Routes reads to the active reaction and coordinates notifications and pending runs. */
@@ -27,9 +27,6 @@ internal object Runtime {
 
     private var notificationDepth = 0
     private var runningPendingReactions = false
-    private var globalReactionErrorHandler: ((Throwable) -> Unit)? = null
-    var scopedReactionErrorHandler: ((Throwable) -> Unit)? = null
-        private set
     // One reaction may be reached through several computed paths from a single write.
     private val pendingReactions = mutableListOf<RunnableReaction>()
 
@@ -42,35 +39,13 @@ internal object Runtime {
         pendingReactions.removeAll { it === reaction }
     }
 
-    fun installReactionErrorHandler(effect: (Throwable) -> Unit): AutoCloseable {
-        check(globalReactionErrorHandler == null) { "A global reaction error handler is already installed" }
-        globalReactionErrorHandler = effect
-        return object : AutoCloseable {
-            private var closed = false
-
-            override fun close() {
-                if (closed) return
-                closed = true
-                if (globalReactionErrorHandler === effect) globalReactionErrorHandler = null
-            }
-        }
-    }
-
-    fun <T> withReactionErrorHandler(handler: (Throwable) -> Unit, block: () -> T): T {
-        val enclosing = scopedReactionErrorHandler
-        scopedReactionErrorHandler = handler
-        try {
-            return block()
-        } finally {
-            scopedReactionErrorHandler = enclosing
-        }
-    }
+    var globalErrorHandler: ReactionErrorHandler? = null
 
     /** Reports an error when a global handler exists and returns whether it succeeded. */
-    fun reportReactionError(error: Throwable): Boolean {
-        val handler = globalReactionErrorHandler ?: return false
+    fun reportReactionError(error: Throwable, subscription: AutoCloseable): Boolean {
+        val handler = globalErrorHandler ?: return false
         return try {
-            handler(error)
+            handler.handle(error, subscription)
             true
         } catch (_: Throwable) {
             false

@@ -317,7 +317,7 @@ val KotXApiTests by testSuite {
             var count by observable(0)
             val values = mutableListOf<Int>()
             val errors = mutableListOf<Throwable>()
-            val handler = KotXRuntime.installReactionErrorHandler { errors.add(it) }
+            KotXRuntime.setGlobalErrorHandler(ru.ought.kotx.reaction.ReactionErrorHandler { error, _ -> errors.add(error) })
             val subscription = autorun {
                 check(count != 1)
                 values.add(count)
@@ -330,27 +330,81 @@ val KotXApiTests by testSuite {
                 values.shouldContainExactly(listOf(0, 2))
             } finally {
                 subscription.close()
-                handler.close()
+                KotXRuntime.removeGlobalErrorHandler()
             }
         }
 
-        test("default autorun unsubscribes on error after the global handler closes") {
+        test("Global policy bypasses the scope and uses the current global handler") {
+            var count by observable(0)
+            val scopedErrors = mutableListOf<Throwable>()
+            val globalErrors = mutableListOf<Throwable>()
+            val subscription = withReactionErrorHandler({ scopedErrors.add(it) }) {
+                autorun(onError = ReactionErrorPolicy.Global) { check(count == 0) }
+            }
+            try {
+                KotXRuntime.setGlobalErrorHandler { error, _ -> globalErrors.add(error) }
+                count = 1
+                count = 2
+                globalErrors.size.shouldBe(2)
+                scopedErrors.size.shouldBe(0)
+            } finally {
+                subscription.close()
+                KotXRuntime.removeGlobalErrorHandler()
+            }
+        }
+
+        test("Global policy unsubscribes without a global handler despite a scope handler") {
             var count by observable(0)
             var runs = 0
-            val handler = KotXRuntime.installReactionErrorHandler { }
+            val errors = mutableListOf<Throwable>()
+            withReactionErrorHandler({ errors.add(it) }) {
+                autorun(onError = ReactionErrorPolicy.Global) {
+                    runs++
+                    check(count == 0)
+                }
+            }.use {
+                count = 1
+                count = 2
+                runs.shouldBe(2)
+                errors.size.shouldBe(0)
+            }
+        }
+
+        test("Global policy unsubscribes when the global handler throws") {
+            var count by observable(0)
+            var runs = 0
+            KotXRuntime.setGlobalErrorHandler { _, _ -> error("handler failure") }
+            val subscription = autorun(onError = ReactionErrorPolicy.Global) {
+                runs++
+                check(count == 0)
+            }
+            try {
+                count = 1
+                count = 2
+                runs.shouldBe(2)
+            } finally {
+                subscription.close()
+                KotXRuntime.removeGlobalErrorHandler()
+            }
+        }
+
+        test("default autorun unsubscribes on error after the global handler is removed") {
+            var count by observable(0)
+            var runs = 0
+            KotXRuntime.setGlobalErrorHandler(ru.ought.kotx.reaction.ReactionErrorHandler { _, _ -> })
             val subscription = autorun {
                 runs++
                 check(count != 1)
             }
             try {
-                handler.close()
+                KotXRuntime.removeGlobalErrorHandler()
                 count = 1
                 count = 2
 
                 runs.shouldBe(2)
             } finally {
                 subscription.close()
-                handler.close()
+                KotXRuntime.removeGlobalErrorHandler()
             }
         }
 
@@ -373,7 +427,7 @@ val KotXApiTests by testSuite {
             var count by observable(0)
             var runs = 0
             val globalErrors = mutableListOf<Throwable>()
-            val handler = KotXRuntime.installReactionErrorHandler { globalErrors.add(it) }
+            KotXRuntime.setGlobalErrorHandler(ru.ought.kotx.reaction.ReactionErrorHandler { error, _ -> globalErrors.add(error) })
             val subscription = autorun(onError = ReactionErrorPolicy.Unsubscribe) {
                 runs++
                 check(count != 1)
@@ -386,7 +440,54 @@ val KotXApiTests by testSuite {
                 globalErrors.size.shouldBe(0)
             } finally {
                 subscription.close()
-                handler.close()
+                KotXRuntime.removeGlobalErrorHandler()
+            }
+        }
+
+        test("error callback selectively unsubscribes the autorun") {
+            var count by observable(0)
+            val errors = mutableListOf<Throwable>()
+            autorun(onError = { error, subscription ->
+                errors.add(error)
+                if (count == 2) subscription.close()
+            }) {
+                check(count == 0)
+            }.use {
+                count = 1
+                count = 2
+                count = 3
+                errors.size.shouldBe(2)
+            }
+        }
+
+        test("nested receiver scopes retain their own handlers") {
+            var count by observable(0)
+            val outerErrors = mutableListOf<Throwable>()
+            val innerErrors = mutableListOf<Throwable>()
+            val subscriptions = withReactionErrorHandler({ outerErrors.add(it) }) {
+                val outer = autorun { check(count == 0) }
+                val inner = withReactionErrorHandler({ innerErrors.add(it) }) {
+                    autorun { check(count == 0) }
+                }
+                listOf(outer, inner)
+            }
+            try {
+                count = 1
+                outerErrors.size.shouldBe(1)
+                innerErrors.size.shouldBe(1)
+            } finally {
+                subscriptions.forEach { it.close() }
+            }
+        }
+
+        test("ordinary helpers do not inherit a receiver scope handler") {
+            var count by observable(0)
+            val errors = mutableListOf<Throwable>()
+            fun watch(): AutoCloseable = autorun { check(count == 0) }
+            val subscription = withReactionErrorHandler({ errors.add(it) }) { watch() }
+            subscription.use {
+                count = 1
+                errors.size.shouldBe(0)
             }
         }
 
@@ -409,7 +510,7 @@ val KotXApiTests by testSuite {
             var count by observable(0)
             val globalErrors = mutableListOf<Throwable>()
             val scopedErrors = mutableListOf<Throwable>()
-            val registration = KotXRuntime.installReactionErrorHandler { globalErrors.add(it) }
+            KotXRuntime.setGlobalErrorHandler(ru.ought.kotx.reaction.ReactionErrorHandler { error, _ -> globalErrors.add(error) })
             val subscription = withReactionErrorHandler({ scopedErrors.add(it) }) {
                 autorun { check(count != 1) }
             }
@@ -420,7 +521,7 @@ val KotXApiTests by testSuite {
                 globalErrors.size.shouldBe(0)
             } finally {
                 subscription.close()
-                registration.close()
+                KotXRuntime.removeGlobalErrorHandler()
             }
         }
 
@@ -429,7 +530,7 @@ val KotXApiTests by testSuite {
             val globalErrors = mutableListOf<Throwable>()
             val scopedErrors = mutableListOf<Throwable>()
             val explicitErrors = mutableListOf<Throwable>()
-            val registration = KotXRuntime.installReactionErrorHandler { globalErrors.add(it) }
+            KotXRuntime.setGlobalErrorHandler(ru.ought.kotx.reaction.ReactionErrorHandler { error, _ -> globalErrors.add(error) })
             val subscription = withReactionErrorHandler({ scopedErrors.add(it) }) {
                 autorun(onError = { explicitErrors.add(it) }) { check(count != 1) }
             }
@@ -441,7 +542,7 @@ val KotXApiTests by testSuite {
                 globalErrors.size.shouldBe(0)
             } finally {
                 subscription.close()
-                registration.close()
+                KotXRuntime.removeGlobalErrorHandler()
             }
         }
 
@@ -452,7 +553,7 @@ val KotXApiTests by testSuite {
             val scopedFailure = IllegalStateException("scoped handler failed")
             val scopedErrors = mutableListOf<Throwable>()
             val globalErrors = mutableListOf<Throwable>()
-            val registration = KotXRuntime.installReactionErrorHandler { globalErrors.add(it) }
+            KotXRuntime.setGlobalErrorHandler(ru.ought.kotx.reaction.ReactionErrorHandler { error, _ -> globalErrors.add(error) })
             val subscription = withReactionErrorHandler({ error ->
                 scopedErrors.add(error)
                 throw scopedFailure
@@ -471,7 +572,7 @@ val KotXApiTests by testSuite {
                 globalErrors.shouldContainExactly(listOf(scopedFailure))
             } finally {
                 subscription.close()
-                registration.close()
+                KotXRuntime.removeGlobalErrorHandler()
             }
         }
 
@@ -480,7 +581,7 @@ val KotXApiTests by testSuite {
             val explicitFailure = IllegalArgumentException("explicit handler failed")
             val scopedErrors = mutableListOf<Throwable>()
             val globalErrors = mutableListOf<Throwable>()
-            val registration = KotXRuntime.installReactionErrorHandler { globalErrors.add(it) }
+            KotXRuntime.setGlobalErrorHandler(ru.ought.kotx.reaction.ReactionErrorHandler { error, _ -> globalErrors.add(error) })
             val subscription = withReactionErrorHandler({ scopedErrors.add(it) }) {
                 autorun(onError = { throw explicitFailure }) { check(count != 1) }
             }
@@ -491,7 +592,7 @@ val KotXApiTests by testSuite {
                 globalErrors.size.shouldBe(0)
             } finally {
                 subscription.close()
-                registration.close()
+                KotXRuntime.removeGlobalErrorHandler()
             }
         }
 
@@ -500,7 +601,7 @@ val KotXApiTests by testSuite {
             var runs = 0
             val handlerFailure = IllegalArgumentException("handler failed")
             val globalErrors = mutableListOf<Throwable>()
-            val registration = KotXRuntime.installReactionErrorHandler { globalErrors.add(it) }
+            KotXRuntime.setGlobalErrorHandler(ru.ought.kotx.reaction.ReactionErrorHandler { error, _ -> globalErrors.add(error) })
             val subscription = autorun(onError = { throw handlerFailure }) {
                 runs++
                 check(count != 1)
@@ -513,34 +614,62 @@ val KotXApiTests by testSuite {
                 globalErrors.shouldContainExactly(listOf(handlerFailure))
             } finally {
                 subscription.close()
-                registration.close()
+                KotXRuntime.removeGlobalErrorHandler()
             }
         }
 
-        test("only one global handler can be installed") {
-            val registration = KotXRuntime.installReactionErrorHandler { }
+        test("replacing the global handler affects existing autoruns") {
+            var count by observable(0)
+            val firstErrors = mutableListOf<Throwable>()
+            val secondErrors = mutableListOf<Throwable>()
+            KotXRuntime.setGlobalErrorHandler(ru.ought.kotx.reaction.ReactionErrorHandler { error, _ -> firstErrors.add(error) })
+            val subscription = autorun { check(count == 0) }
             try {
-                shouldThrow<IllegalStateException> {
-                    KotXRuntime.installReactionErrorHandler { }
-                }
+                count = 1
+                KotXRuntime.setGlobalErrorHandler(ru.ought.kotx.reaction.ReactionErrorHandler { error, _ -> secondErrors.add(error) })
+                count = 2
+                firstErrors.size.shouldBe(1)
+                secondErrors.size.shouldBe(1)
             } finally {
-                registration.close()
+                subscription.close()
+                KotXRuntime.removeGlobalErrorHandler()
             }
         }
 
-        test("current global handler exposes its registration until closed") {
-            val handlerEffect: (Throwable) -> Unit = { }
-            val handler = KotXRuntime.installReactionErrorHandler(handlerEffect)
-
-            KotXRuntime.currentReactionErrorHandler.shouldBe(handler)
-            handler.effect.shouldBe(handlerEffect)
-            handler.isClosed.shouldBe(false)
-
-            KotXRuntime.currentReactionErrorHandler!!.close()
-
-            handler.isClosed.shouldBe(true)
-            KotXRuntime.currentReactionErrorHandler.shouldBe(null)
+        test("one handler selectively unsubscribes scoped and global reactions") {
+            var count by observable(0)
+            val errors = mutableListOf<Throwable>()
+            val handler = ru.ought.kotx.reaction.ReactionErrorHandler { error, subscription ->
+                errors.add(error)
+                if (count == 2) subscription.close()
+            }
+            KotXRuntime.setGlobalErrorHandler(handler)
+            val global = autorun { check(count == 0) }
+            val scoped = withReactionErrorHandler(handler) { autorun { check(count == 0) } }
+            try {
+                count = 1
+                count = 2
+                count = 3
+                errors.size.shouldBe(4)
+            } finally {
+                scoped.close()
+                global.close()
+                KotXRuntime.removeGlobalErrorHandler()
+            }
         }
+
+        test("global handler can be set and removed") {
+            val handler = ru.ought.kotx.reaction.ReactionErrorHandler { _, _ -> }
+            try {
+                KotXRuntime.setGlobalErrorHandler(handler)
+                KotXRuntime.globalErrorHandler.shouldBe(handler)
+                KotXRuntime.removeGlobalErrorHandler()
+                KotXRuntime.globalErrorHandler.shouldBe(null)
+            } finally {
+                KotXRuntime.removeGlobalErrorHandler()
+            }
+        }
+
     }
 
     test("direct computed reads propagate errors") {

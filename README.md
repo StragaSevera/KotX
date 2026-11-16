@@ -148,18 +148,20 @@ autorun(onError = ReactionErrorPolicy.Unsubscribe) {
 The initial execution remains part of the `autorun` call: if it fails, the call throws
 and no subscription is returned.
 
+Use `ReactionErrorPolicy.Global` to bypass a receiver scope's handler and use the
+current global handler on each later failure. If the global handler is absent or
+throws, the autorun unsubscribes. Initial failures still unsubscribe and propagate.
+
 ### Reaction error handlers
 
-Install one application-global handler through `KotXRuntime`. It remains active until
-its idempotent registration handle is closed. Installing a second global handler while
-one is active fails.
+Set the application-global handler through `KotXRuntime`. Setting another handler
+replaces it; `removeGlobalErrorHandler()` removes it. Existing reactions use the current handler.
 
 ```kotlin
-val registration = KotXRuntime.installReactionErrorHandler { error ->
+KotXRuntime.setGlobalErrorHandler(ReactionErrorHandler { error, subscription ->
     logger.error(error)
-}
-
-KotXRuntime.currentReactionErrorHandler?.close()
+})
+KotXRuntime.removeGlobalErrorHandler()
 ```
 
 A default-policy autorun reports later failures to the currently installed global
@@ -336,3 +338,36 @@ behavior in `api/` and focused runtime invariants in `unit/` on JVM and Node.js.
 
 The wider project goals and planned concurrency model are documented in the
 [project brief](../Docs/01.%20Project%20brief.md) in the parent workspace.
+
+Error callbacks can receive the subscription for selective disposal:
+
+```kotlin
+autorun(onError = { error, subscription ->
+    println(error)
+    if (error is IllegalStateException) subscription.close()
+}) { println(state.count) }
+```
+
+Callbacks that return normally keep the subscription unless they close it.
+Throwing callbacks unsubscribe and forward failures through scoped/global fallback
+handlers. Initial failures always unsubscribe and escape. Creation helpers pass an
+explicit internal context containing the handler retained by each autorun.
+
+`withReactionErrorHandler` supplies a `ReactionScope` receiver. Direct `autorun`
+calls in its block use the receiver's helpers and retain its handler; nested scopes
+use their own handler. No ambient scoped handler is stored in Runtime.
+Ordinary functions called from the block do not inherit the receiver. To share the
+scope with a helper, declare it as a `ReactionScope` extension and call its member
+`autorun`. Top-level `autorun` and `Autorun.start` use default global handling.
+
+`ReactionErrorHandler` is the shared callback contract for explicit, scoped, and
+global handling. It receives the error and failing subscription, which it may close:
+
+```kotlin
+val handler = ReactionErrorHandler { error, subscription ->
+    println(error)
+    if (error is IllegalStateException) subscription.close()
+}
+KotXRuntime.setGlobalErrorHandler(handler)
+KotXRuntime.removeGlobalErrorHandler() // Removes the handler; does not close reactions.
+```
