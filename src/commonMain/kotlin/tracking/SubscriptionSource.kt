@@ -1,23 +1,23 @@
 package ru.ought.kotx.tracking
 
 import ru.ought.kotx.runtime.RuntimeEngine
-import ru.ought.kotx.reaction.Reaction
+import ru.ought.kotx.reaction.InvalidationListener
 
 /**
  * Reusable single-threaded Source with identity-based subscriptions and coordinated
  * notifications. Subclass to report reads and publish changes after updating storage.
  */
 open class SubscriptionSource : Source {
-    private val subscribers = mutableListOf<Reaction>()
+    private val subscribers = mutableListOf<InvalidationListener>()
     protected val observed: Boolean get() = subscribers.isNotEmpty()
 
-    override fun subscribe(reaction: Reaction) {
-        if (subscribers.none { it === reaction }) subscribers.add(reaction)
+    override fun addListener(listener: InvalidationListener) {
+        if (subscribers.none { it === listener }) subscribers.add(listener)
     }
 
-    override fun unsubscribe(reaction: Reaction) {
+    override fun removeListener(listener: InvalidationListener) {
         // Computed sources use this transition to release their upstream dependencies.
-        val index = subscribers.indexOfFirst { it === reaction }
+        val index = subscribers.indexOfFirst { it === listener }
         if (index >= 0) {
             subscribers.removeAt(index)
             if (subscribers.isEmpty()) onUnobserved()
@@ -32,6 +32,6 @@ open class SubscriptionSource : Source {
     }
 
     protected fun notifySubscribers() {
-        RuntimeEngine.notifyReactions(subscribers)
+        RuntimeEngine.notifyInvalidationListeners(subscribers)
     }
 }

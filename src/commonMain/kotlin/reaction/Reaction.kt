@@ -1,15 +1,10 @@
 package ru.ought.kotx.reaction
 
-import ru.ought.kotx.tracking.Source
+import ru.ought.kotx.tracking.DependencyTracker
+
 /**
  * An experimental consumer that owns its dependencies and responds to invalidation.
  * Implementers manage subscription cleanup and notification behavior themselves;
- * [DependencyTracker] is an optional helper. This protocol may change before stabilization.
+ * [DependencyTracker] is an optional helper.
  */
-interface Reaction {
-    /** Records a source as a dependency during a scoped synchronous evaluation. */
-    fun recordDependency(source: Source)
-
-    /** Responds to possible change, without implying immediate reevaluation. */
-    fun react()
-}
+interface Reaction : SourceReadListener, InvalidationListener

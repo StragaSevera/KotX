@@ -9,7 +9,7 @@ import ru.ought.kotx.view.PropertyView
 /**
  * A **lazy** derived property that tracks the sources read by its expression.
  *
- * When a dependency may have changed, [react] marks the cached result stale and
+ * When a dependency may have changed, [onInvalidated] marks the cached result stale and
  * notifies subscribers. Reevaluation happens only on the next read. A synchronous
  * autorun can make that read before the original write returns.
  */
@@ -24,7 +24,7 @@ class ComputedProperty<T>(private val computation: () -> T) :
         get() {
             // Reject cycles before registering the recursive read as another dependency.
             check(!computing) { "Computed dependency cycle" }
-            // Subscribe the enclosing consumer to this computed, not to its internals.
+            // Report this Computed to the enclosing listener before tracking the Computed’s own reads.
             reportRead()
             return (cachedResult ?: compute()).getOrThrow()
         }
@@ -43,9 +43,9 @@ class ComputedProperty<T>(private val computation: () -> T) :
         }
     }
 
-    override fun recordDependency(source: Source) = tracker.recordDependency(source)
+    override fun onSourceRead(source: Source) = tracker.recordDependency(source)
 
-    override fun react() {
+    override fun onInvalidated() {
         // Once stale, further notifications needn't reach subscribers until a fresh read.
         if (cachedResult == null) return
         cachedResult = null

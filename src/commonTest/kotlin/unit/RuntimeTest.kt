@@ -14,7 +14,7 @@ private class CountingExecutableReaction(
 ) : ExecutableReaction {
     var runCount = 0
 
-    override fun react() {
+    override fun onInvalidated() {
         RuntimeEngine.enqueueReaction(this)
     }
 
@@ -23,7 +23,7 @@ private class CountingExecutableReaction(
         action()
     }
 
-    override fun recordDependency(source: Source) = Unit
+    override fun onSourceRead(source: Source) = Unit
 }
 
 @Suppress("unused")
@@ -31,7 +31,7 @@ val RuntimeTests by testSuite {
     test("one notification wave queues a executable reaction once") {
         val reaction = CountingExecutableReaction()
 
-        RuntimeEngine.notifyReactions(listOf(reaction, reaction))
+        RuntimeEngine.notifyInvalidationListeners(listOf(reaction, reaction))
 
         reaction.runCount.shouldBe(1)
     }
@@ -39,14 +39,14 @@ val RuntimeTests by testSuite {
     test("pending reactions can be removed before the queue runs") {
         val pending = CountingExecutableReaction()
         val remover = object : Reaction {
-            override fun react() {
+            override fun onInvalidated() {
                 RuntimeEngine.removePendingReaction(pending)
             }
 
-            override fun recordDependency(source: Source) = Unit
+            override fun onSourceRead(source: Source) = Unit
         }
 
-        RuntimeEngine.notifyReactions(listOf(pending, remover))
+        RuntimeEngine.notifyInvalidationListeners(listOf(pending, remover))
 
         pending.runCount.shouldBe(0)
     }
@@ -54,10 +54,10 @@ val RuntimeTests by testSuite {
     test("work queued while draining is run by the same drain loop") {
         val second = CountingExecutableReaction()
         val first = CountingExecutableReaction {
-            RuntimeEngine.notifyReactions(listOf(second))
+            RuntimeEngine.notifyInvalidationListeners(listOf(second))
         }
 
-        RuntimeEngine.notifyReactions(listOf(first))
+        RuntimeEngine.notifyInvalidationListeners(listOf(first))
 
         first.runCount.shouldBe(1)
         second.runCount.shouldBe(1)
@@ -68,7 +68,7 @@ val RuntimeTests by testSuite {
         val healthy = CountingExecutableReaction()
 
         shouldThrow<IllegalStateException> {
-            RuntimeEngine.notifyReactions(listOf(failure, healthy))
+            RuntimeEngine.notifyInvalidationListeners(listOf(failure, healthy))
         }
 
         failure.runCount.shouldBe(1)
@@ -83,7 +83,7 @@ val RuntimeTests by testSuite {
         val healthy = CountingExecutableReaction()
 
         val failure = shouldThrow<ReactionExecutionException> {
-            RuntimeEngine.notifyReactions(listOf(first, second, healthy))
+            RuntimeEngine.notifyInvalidationListeners(listOf(first, second, healthy))
         }
 
         failure.failures.shouldBe(listOf(firstError, secondError))

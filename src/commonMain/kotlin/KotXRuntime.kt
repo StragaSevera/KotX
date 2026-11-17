@@ -1,7 +1,8 @@
 package ru.ought.kotx
 
 import ru.ought.kotx.reaction.ExecutableReaction
-import ru.ought.kotx.reaction.Reaction
+import ru.ought.kotx.reaction.InvalidationListener
+import ru.ought.kotx.reaction.SourceReadListener
 import ru.ought.kotx.reaction.ReactionErrorHandler
 import ru.ought.kotx.runtime.RuntimeEngine
 import ru.ought.kotx.tracking.Source
@@ -12,11 +13,12 @@ import ru.ought.kotx.tracking.Source
  */
 object KotXRuntime {
     /**
-     * Invalidates a snapshot of [reactions], then drains queued work after outermost
+     * Notifies a snapshot of invalidation [listeners], then drains queued work after outermost
      * notification completes. All subscribers are visited even if one throws.
      * Implementations publish their state before calling this single-threaded operation.
      */
-    fun notifyReactions(reactions: List<Reaction>) = RuntimeEngine.notifyReactions(reactions)
+    fun notifyInvalidationListeners(listeners: List<InvalidationListener>) =
+        RuntimeEngine.notifyInvalidationListeners(listeners)
 
     /**
      * Queues by identity during notification; otherwise runs synchronously.
@@ -27,16 +29,16 @@ object KotXRuntime {
     /** Cancels pending work by identity. Already executing work cannot be cancelled. */
     fun removePendingReaction(reaction: ExecutableReaction) = RuntimeEngine.removePendingReaction(reaction)
 
-    /** Reports a source read to the active Reaction; does nothing outside tracking. */
+    /** Reports a source read to the active listener when a tracking scope is active. */
     fun reportRead(source: Source) = RuntimeEngine.reportRead(source)
 
     /**
-     * Routes synchronous reads to [reaction] for [block], restoring the enclosing
-     * Reaction even on failure. Returns the result and propagates exceptions.
-     * Does not manage subscriptions or propagate tracking through suspension.
+     * Routes synchronous source reads to [listener] for [block] and restores the enclosing
+     * listener even on failure. Returns the result and propagates exceptions.
+     * Callers manage subscriptions separately. Tracking is scoped to synchronous execution.
      */
-    fun <T> withReaction(reaction: Reaction, block: () -> T): T =
-        RuntimeEngine.withReaction(reaction, block)
+    fun <T> withSourceReadListener(listener: SourceReadListener, block: () -> T): T =
+        RuntimeEngine.withSourceReadListener(listener, block)
 
     /** The current application-global fallback for later reaction failures. */
     val globalErrorHandler: ReactionErrorHandler?

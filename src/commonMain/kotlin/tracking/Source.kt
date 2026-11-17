@@ -1,13 +1,13 @@
 package ru.ought.kotx.tracking
 
-import ru.ought.kotx.reaction.Reaction
+import ru.ought.kotx.reaction.InvalidationListener
 
 /**
  * An observable dependency. Implementations need to ensure subscription correctness.
- * Subscribe and unsubscribe must be idempotent and compare reactions by identity.
+ * Adding and removing listeners must be idempotent and compare listeners by identity.
  * All access currently requires one thread. Implementations publish state before notification.
  */
 interface Source {
-    fun subscribe(reaction: Reaction)
-    fun unsubscribe(reaction: Reaction)
+    fun addListener(listener: InvalidationListener)
+    fun removeListener(listener: InvalidationListener)
 }

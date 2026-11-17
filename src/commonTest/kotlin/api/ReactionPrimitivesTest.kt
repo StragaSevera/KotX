@@ -26,8 +26,8 @@ private class PublishedSource : SubscriptionSource() {
 
 private class PublicExecutable : ExecutableReaction {
     var runs = 0
-    override fun recordDependency(source: Source) = Unit
-    override fun react() = KotXRuntime.enqueueReaction(this)
+    override fun onSourceRead(source: Source) = Unit
+    override fun onInvalidated() = KotXRuntime.enqueueReaction(this)
     override fun execute() { runs++ }
     override fun equals(other: Any?) = other is PublicExecutable
     override fun hashCode() = 0
@@ -54,25 +54,25 @@ val ReactionPrimitivesTests by testSuite {
     test("all invalidations complete before public executable work starts") {
         val events = mutableListOf<String>()
         val executable = object : ExecutableReaction {
-            override fun recordDependency(source: Source) = Unit
-            override fun react() {
+            override fun onSourceRead(source: Source) = Unit
+            override fun onInvalidated() {
                 events.add("first invalidated")
                 KotXRuntime.enqueueReaction(this)
             }
             override fun execute() { events.add("execute") }
         }
         val second = object : Reaction {
-            override fun recordDependency(source: Source) = Unit
-            override fun react() { events.add("second invalidated") }
+            override fun onSourceRead(source: Source) = Unit
+            override fun onInvalidated() { events.add("second invalidated") }
         }
-        KotXRuntime.notifyReactions(listOf(executable, second))
+        KotXRuntime.notifyInvalidationListeners(listOf(executable, second))
         events.shouldBe(listOf("first invalidated", "second invalidated", "execute"))
     }
 
     test("public queue distinguishes equal executable reactions by identity") {
         val first = PublicExecutable()
         val second = PublicExecutable()
-        KotXRuntime.notifyReactions(listOf(first, first, second))
+        KotXRuntime.notifyInvalidationListeners(listOf(first, first, second))
         first.runs.shouldBe(1)
         second.runs.shouldBe(1)
     }
@@ -80,10 +80,10 @@ val ReactionPrimitivesTests by testSuite {
     test("public cancellation removes queued work before execution") {
         val pending = PublicExecutable()
         val canceller = object : Reaction {
-            override fun recordDependency(source: Source) = Unit
-            override fun react() = KotXRuntime.removePendingReaction(pending)
+            override fun onSourceRead(source: Source) = Unit
+            override fun onInvalidated() = KotXRuntime.removePendingReaction(pending)
         }
-        KotXRuntime.notifyReactions(listOf(pending, canceller))
+        KotXRuntime.notifyInvalidationListeners(listOf(pending, canceller))
         pending.runs.shouldBe(0)
     }
 
@@ -91,19 +91,19 @@ val ReactionPrimitivesTests by testSuite {
         val reactions = mutableListOf<Reaction>()
         val events = mutableListOf<String>()
         val first = object : Reaction {
-            override fun recordDependency(source: Source) = Unit
-            override fun react() {
+            override fun onSourceRead(source: Source) = Unit
+            override fun onInvalidated() {
                 events.add("first")
                 reactions.clear()
             }
         }
         val second = object : Reaction {
-            override fun recordDependency(source: Source) = Unit
-            override fun react() { events.add("second") }
+            override fun onSourceRead(source: Source) = Unit
+            override fun onInvalidated() { events.add("second") }
         }
         reactions.addAll(listOf(first, second))
 
-        KotXRuntime.notifyReactions(reactions)
+        KotXRuntime.notifyInvalidationListeners(reactions)
 
         events.shouldBe(listOf("first", "second"))
     }
@@ -122,11 +122,11 @@ val ReactionPrimitivesTests by testSuite {
     test("custom invalidation failure does not skip remaining subscribers") {
         val healthy = PublicExecutable()
         val failing = object : Reaction {
-            override fun recordDependency(source: Source) = Unit
-            override fun react() { error("invalidation failure") }
+            override fun onSourceRead(source: Source) = Unit
+            override fun onInvalidated() { error("invalidation failure") }
         }
         shouldThrow<IllegalStateException> {
-            KotXRuntime.notifyReactions(listOf(failing, healthy))
+            KotXRuntime.notifyInvalidationListeners(listOf(failing, healthy))
         }
         healthy.runs.shouldBe(1)
     }

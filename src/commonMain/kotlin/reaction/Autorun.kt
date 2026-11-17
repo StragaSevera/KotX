@@ -47,9 +47,9 @@ class Autorun private constructor(
     private val tracker = DependencyTracker(this)
     private var disposed = false
 
-    override fun recordDependency(source: Source) = tracker.recordDependency(source)
+    override fun onSourceRead(source: Source) = tracker.recordDependency(source)
 
-    override fun react() {
+    override fun onInvalidated() {
         // Queue a run instead of executing immediately,
         // so Computeds can finish marking their caches stale first.
         if (!disposed) RuntimeEngine.enqueueReaction(this)

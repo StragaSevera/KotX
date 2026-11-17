@@ -190,40 +190,41 @@ Invalidating a Computed does not itself evaluate it or throw.
 
 ## Experimental tracking protocol
 
-External libraries can implement `Source` and `Reaction`. A Reaction owns its reads
-and invalidation response. Sources must subscribe/unsubscribe idempotently using
-Reaction identity. Implementers own protocol correctness and cleanup; these extension
-interfaces can change before stabilization. All access remains single-threaded.
+External libraries can implement `SourceReadListener` to receive tracked source reads
+and `InvalidationListener` to receive change notifications. `Reaction` combines both
+roles. A `Source` registers invalidation listeners by identity with `addListener` and
+`removeListener`. Both operations are idempotent. Listeners can call
+`subscribe(source)` and `unsubscribe(source)` to delegate to those methods.
+Implementers own cleanup. These extension interfaces are experimental and single-threaded.
 
-`KotXRuntime.reportRead(source)` forwards a read to the active Reaction, or does
-nothing outside tracking. `KotXRuntime.withReaction(reaction) { ... }` selects that
-Reaction for synchronous reads, returns the block result, and restores the enclosing
-Reaction even when the block throws. It does not create subscriptions itself.
+`KotXRuntime.withSourceReadListener(listener) { ... }` selects the listener for
+synchronous calls to `reportRead(source)`, returns the block result, and restores the
+enclosing listener even when the block throws. The caller manages subscriptions.
 
 A Reaction can use the optional `DependencyTracker`:
 
 ```kotlin
 class IntegrationReaction : Reaction, AutoCloseable {
     private val tracker = DependencyTracker(this)
-    override fun recordDependency(source: Source) = tracker.recordDependency(source)
-    override fun react() { /* Mark the integration's state stale. */ }
+    override fun onSourceRead(source: Source) = tracker.recordDependency(source)
+    override fun onInvalidated() { /* Mark the integration's state stale. */ }
     fun <T> track(block: () -> T): T = tracker.runAsActive(block)
     override fun close() = tracker.clearSources()
 }
 ```
 
-The tracker subscribes to reads, deduplicates sources by identity, and removes old
+The tracker subscribes its owner to the sources the owner reads, deduplicates sources by identity, and removes old
 dependencies after each evaluation. Failed evaluations retain reads made before the
 failure. Clear subscriptions on disposal. Reentrant use of one tracker is unsupported.
 Custom implementations can instead use scoped tracking and manage dependencies themselves.
 Tracking does not propagate through coroutine suspension. Observable writes remain
-forbidden while any Reaction is active.
+forbidden while a source read listener is active.
 
 `SubscriptionSource` supplies identity-based subscription storage. Subclasses call
 `reportRead()` from reads and `notifySubscribers()` after publishing new state. It is a
 public building block, as are `StoredObservableProperty` and `ComputedProperty`.
 
-`ExecutableReaction` adds `execute()`. Use `KotXRuntime.notifyReactions(...)` to coordinate
+`ExecutableReaction` adds `execute()`. Use `KotXRuntime.notifyInvalidationListeners(...)` to coordinate
 invalidation, `enqueueReaction(...)` to request work, and `removePendingReaction(...)`
 to cancel it. Requests deduplicate by identity while pending. Notification finishes
 before queued work runs; requests outside notification run synchronously. Custom

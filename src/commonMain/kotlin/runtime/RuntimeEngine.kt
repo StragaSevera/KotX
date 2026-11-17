@@ -1,33 +1,33 @@
 package ru.ought.kotx.runtime
 
-import ru.ought.kotx.reaction.Reaction
+import ru.ought.kotx.reaction.InvalidationListener
+import ru.ought.kotx.reaction.SourceReadListener
 import ru.ought.kotx.reaction.ReactionExecutionException
 import ru.ought.kotx.reaction.ReactionErrorHandler
 import ru.ought.kotx.reaction.ExecutableReaction
 import ru.ought.kotx.tracking.Source
 
-/** Routes reads to the active reaction and coordinates notifications and pending runs. */
+/** Routes source reads and coordinates invalidation notifications and pending runs. */
 internal object RuntimeEngine {
     // Intentionally execution-global for this single-threaded JVM/JS prototype.
-    private var activeReaction: Reaction? = null
-    val isTracking: Boolean get() = activeReaction != null
+    private var activeReadListener: SourceReadListener? = null
+    val isTracking: Boolean get() = activeReadListener != null
 
     fun reportRead(source: Source) {
-        activeReaction?.recordDependency(source)
+        activeReadListener?.onSourceRead(source)
     }
 
-    fun <T> withReaction(reaction: Reaction, block: () -> T): T {
-        val enclosing = activeReaction
-        activeReaction = reaction
+    fun <T> withSourceReadListener(listener: SourceReadListener, block: () -> T): T {
+        val enclosing = activeReadListener
+        activeReadListener = listener
         try {
             return block()
         } finally {
-            activeReaction = enclosing
+            activeReadListener = enclosing
         }
     }
 
     var globalErrorHandler: ReactionErrorHandler? = null
-
     /** Reports an error when a global handler exists and returns whether it succeeded. */
     fun reportReactionError(error: Throwable, subscription: AutoCloseable): Boolean {
         val handler = globalErrorHandler ?: return false
@@ -40,16 +40,16 @@ internal object RuntimeEngine {
     }
 
     private var notificationDepth = 0
-    fun notifyReactions(reactions: List<Reaction>) {
-        val snapshot = reactions.toList()
+    fun notifyInvalidationListeners(listeners: List<InvalidationListener>) {
+        val snapshot = listeners.toList()
         // A ComputedProperty can notify its own subscribers. Wait for the outermost
         // notification to finish so all affected caches are stale before reactions run.
         notificationDepth++
         try {
             var failure: Throwable? = null
-            for (reaction in snapshot) {
+            for (listener in snapshot) {
                 try {
-                    reaction.react()
+                    listener.onInvalidated()
                 } catch (error: Throwable) {
                     if (failure == null) failure = error
                 }

@@ -16,8 +16,8 @@ private class LifecycleSource : SubscriptionSource() {
 
 private class PassiveReaction : Reaction {
     var invalidations = 0
-    override fun recordDependency(source: Source) = Unit
-    override fun react() { invalidations++ }
+    override fun onSourceRead(source: Source) = Unit
+    override fun onInvalidated() { invalidations++ }
 }
 
 @Suppress("unused")
@@ -28,12 +28,12 @@ val ReactionLifecycleTests by testSuite {
             val first = ComputedProperty { source.read(); 1 }
             val second = ComputedProperty { first.value + 1 }
             val consumer = PassiveReaction()
-            second.subscribe(consumer)
+            consumer.subscribe(second)
             try {
                 second.value.shouldBe(2)
                 source.hasSubscribers.shouldBe(true)
             } finally {
-                second.unsubscribe(consumer)
+                consumer.unsubscribe(second)
             }
             source.hasSubscribers.shouldBe(false)
         }
@@ -46,31 +46,31 @@ val ReactionLifecycleTests by testSuite {
                 throw failure
             }
             val consumer = PassiveReaction()
-            computed.subscribe(consumer)
+            consumer.subscribe(computed)
             try {
                 repeat(2) {
                     (shouldThrow<IllegalStateException> { computed.value } === failure).shouldBe(true)
                 }
                 evaluations.shouldBe(1)
-                computed.react()
+                computed.onInvalidated()
                 shouldThrow<IllegalStateException> { computed.value }
                 evaluations.shouldBe(2)
             } finally {
-                computed.unsubscribe(consumer)
+                consumer.unsubscribe(computed)
             }
         }
 
         test("repeated invalidation notifies consumers only once while stale") {
             val computed = ComputedProperty { 1 }
             val consumer = PassiveReaction()
-            computed.subscribe(consumer)
+            consumer.subscribe(computed)
             try {
                 computed.value
-                computed.react()
-                computed.react()
+                computed.onInvalidated()
+                computed.onInvalidated()
                 consumer.invalidations.shouldBe(1)
             } finally {
-                computed.unsubscribe(consumer)
+                consumer.unsubscribe(computed)
             }
         }
 
@@ -92,7 +92,7 @@ val ReactionLifecycleTests by testSuite {
 
             reaction.close()
             reaction.execute()
-            reaction.react()
+            reaction.onInvalidated()
 
             runs.shouldBe(1)
         }

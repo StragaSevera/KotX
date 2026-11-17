@@ -18,11 +18,11 @@ private class TrackingReaction : Reaction {
     val tracker = DependencyTracker(this)
     var reactionCount = 0
 
-    override fun react() {
+    override fun onInvalidated() {
         reactionCount++
     }
 
-    override fun recordDependency(source: Source) {
+    override fun onSourceRead(source: Source) {
         tracker.recordDependency(source)
     }
 }

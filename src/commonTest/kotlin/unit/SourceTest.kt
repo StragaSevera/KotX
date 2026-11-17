@@ -20,12 +20,12 @@ private class ObservingSource : SubscriptionSource() {
 private class CountingReaction(private val response: () -> Unit = {}) : Reaction {
     var reactionCount = 0
 
-    override fun react() {
+    override fun onInvalidated() {
         reactionCount++
         response()
     }
 
-    override fun recordDependency(source: Source) = Unit
+    override fun onSourceRead(source: Source) = Unit
 }
 
 @Suppress("unused")
@@ -34,8 +34,8 @@ val SourceTests by testSuite {
         val source = ObservingSource()
         val subscriber = CountingReaction()
 
-        source.subscribe(subscriber)
-        source.subscribe(subscriber)
+        source.addListener(subscriber)
+        source.addListener(subscriber)
         source.notifyChanged()
 
         subscriber.reactionCount.shouldBe(1)
@@ -45,14 +45,14 @@ val SourceTests by testSuite {
         val source = ObservingSource()
         val first = CountingReaction()
         val second = CountingReaction()
-        source.subscribe(first)
-        source.subscribe(second)
+        source.addListener(first)
+        source.addListener(second)
 
-        source.unsubscribe(first)
+        source.removeListener(first)
         source.unobservedCount.shouldBe(0)
-        source.unsubscribe(second)
+        source.removeListener(second)
         source.unobservedCount.shouldBe(1)
-        source.unsubscribe(second)
+        source.removeListener(second)
         source.unobservedCount.shouldBe(1)
     }
 
@@ -62,10 +62,10 @@ val SourceTests by testSuite {
         val second = CountingReaction { calls.add("second") }
         val first = CountingReaction {
             calls.add("first")
-            source.unsubscribe(second)
+            source.removeListener(second)
         }
-        source.subscribe(first)
-        source.subscribe(second)
+        source.addListener(first)
+        source.addListener(second)
 
         source.notifyChanged()
 
