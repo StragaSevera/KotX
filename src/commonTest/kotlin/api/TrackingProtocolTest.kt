@@ -41,33 +41,11 @@ val TrackingProtocolTests by testSuite {
         (reaction.reads.single() === source).shouldBe(true)
         source.subscribers.size.shouldBe(0)
     }
-    test("reads outside tracking do nothing") {
-        val source = ExternalSource()
-        val reaction = ExternalReaction()
-        KotXRuntime.withReaction(reaction) { source.read() }
-        source.read()
-        reaction.reads.size.shouldBe(1)
-    }
-    test("nested activation restores the enclosing reaction after failure") {
-        val outer = ExternalReaction()
-        val inner = ExternalReaction()
-        val source = ExternalSource()
-        KotXRuntime.withReaction(outer) {
-            shouldThrow<IllegalStateException> {
-                KotXRuntime.withReaction(inner) {
-                    source.read()
-                    error("failure")
-                }
-            }
-            source.read()
-        }
-        source.read()
-        outer.reads.size.shouldBe(1)
-        inner.reads.size.shouldBe(1)
-    }
+
     test("scoped activation returns the block result") {
         KotXRuntime.withReaction(ExternalReaction()) { 42 }.shouldBe(42)
     }
+
     test("external reactions receive invalidation from core observables") {
         val property = observable(1)
         val reaction = ExternalReaction()
@@ -78,6 +56,15 @@ val TrackingProtocolTests by testSuite {
         reaction.invalidations.shouldBe(1)
         source.unsubscribe(reaction)
     }
+
+    test("reads outside tracking do nothing") {
+        val source = ExternalSource()
+        val reaction = ExternalReaction()
+        KotXRuntime.withReaction(reaction) { source.read() }
+        source.read()
+        reaction.reads.size.shouldBe(1)
+    }
+
     test("core subscriptions distinguish equal reactions by identity") {
         val property = observable(1)
         val first = ExternalReaction()
@@ -94,6 +81,7 @@ val TrackingProtocolTests by testSuite {
         second.invalidations.shouldBe(1)
         source.unsubscribe(second)
     }
+
     test("optional trackers distinguish equal sources and replace dependencies") {
         val first = ExternalSource()
         val second = ExternalSource()
@@ -114,4 +102,23 @@ val TrackingProtocolTests by testSuite {
         reaction.tracker.clearSources()
         second.subscribers.size.shouldBe(0)
     }
+
+    test("nested activation restores the enclosing reaction after failure") {
+        val outer = ExternalReaction()
+        val inner = ExternalReaction()
+        val source = ExternalSource()
+        KotXRuntime.withReaction(outer) {
+            shouldThrow<IllegalStateException> {
+                KotXRuntime.withReaction(inner) {
+                    source.read()
+                    error("failure")
+                }
+            }
+            source.read()
+        }
+        source.read()
+        outer.reads.size.shouldBe(1)
+        inner.reads.size.shouldBe(1)
+    }
+
 }

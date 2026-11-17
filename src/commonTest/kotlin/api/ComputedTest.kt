@@ -62,6 +62,62 @@ val ComputedTests by testSuite {
         }
     }
 
+    test("unobserved computed reads reflect dependency changes") {
+        var text by observable<String?>(null)
+        val result by computed { text }
+
+        result.shouldBe(null)
+        text = "hello"
+
+        result.shouldBe("hello")
+    }
+
+    test("computed can return null") {
+        var text by observable<String?>(null)
+        val result by computed { text }
+
+        result.shouldBe(null)
+    }
+
+    test("two consumers share one cached evaluation") {
+        var count by observable(1)
+        var evaluations = 0
+        val doubled by computed {
+            evaluations++
+            count * 2
+        }
+        autorun { doubled }.use {
+            autorun { doubled }.use {
+                evaluations.shouldBe(1)
+                count = 2
+                evaluations.shouldBe(2)
+            }
+        }
+    }
+
+    test("closing one consumer preserves the Computed cache and remaining subscription") {
+        var count by observable(1)
+        var evaluations = 0
+        val doubled by computed {
+            evaluations++
+            count * 2
+        }
+        val values = mutableListOf<Int>()
+        val first = autorun { doubled }
+        try {
+            autorun { values.add(doubled) }.use {
+                first.close()
+                doubled.shouldBe(2)
+                evaluations.shouldBe(1)
+                count = 2
+                values.shouldBe(listOf(2, 4))
+                evaluations.shouldBe(2)
+            }
+        } finally {
+            first.close()
+        }
+    }
+
     test("computed replaces conditional dependencies") {
         var left by observable(1)
         var right by observable(10)
@@ -87,23 +143,6 @@ val ComputedTests by testSuite {
         shouldFail = true
 
         shouldThrow<IllegalStateException> { result }
-    }
-
-    test("computed can return null") {
-        var text by observable<String?>(null)
-        val result by computed { text }
-
-        result.shouldBe(null)
-    }
-
-    test("unobserved computed reads reflect dependency changes") {
-        var text by observable<String?>(null)
-        val result by computed { text }
-
-        result.shouldBe(null)
-        text = "hello"
-
-        result.shouldBe("hello")
     }
 
     test("computed dependency cycles throw") {

@@ -20,13 +20,7 @@ val ViewsTests by testSuite {
             values.shouldBe(listOf("first", "second", "third"))
         }
     }
-    test("property views conceal writing and reuse their wrapper") {
-        val source = observable(1)
-        val view = source.asView()
-        (view is ObservableProperty<*>).shouldBe(false)
-        (view === source.asView()).shouldBe(true)
-        (view === view.asView()).shouldBe(true)
-    }
+
     test("computed handles track direct value reads") {
         val source = observable(1)
         val doubled = computed { source.value * 2 }
@@ -36,4 +30,13 @@ val ViewsTests by testSuite {
             values.shouldBe(listOf(2, 4))
         }
     }
+
+    test("property views conceal writing and reuse their wrapper") {
+        val source = observable(1)
+        val view = source.asView()
+        (view is ObservableProperty<*>).shouldBe(false)
+        (view === source.asView()).shouldBe(true)
+        (view === view.asView()).shouldBe(true)
+    }
+
 }

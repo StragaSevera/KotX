@@ -36,6 +36,33 @@ val RuntimeTests by testSuite {
         reaction.runCount.shouldBe(1)
     }
 
+    test("pending reactions can be removed before the queue runs") {
+        val pending = CountingExecutableReaction()
+        val remover = object : Reaction {
+            override fun react() {
+                RuntimeEngine.removePendingReaction(pending)
+            }
+
+            override fun recordDependency(source: Source) = Unit
+        }
+
+        RuntimeEngine.notifyReactions(listOf(pending, remover))
+
+        pending.runCount.shouldBe(0)
+    }
+
+    test("work queued while draining is run by the same drain loop") {
+        val second = CountingExecutableReaction()
+        val first = CountingExecutableReaction {
+            RuntimeEngine.notifyReactions(listOf(second))
+        }
+
+        RuntimeEngine.notifyReactions(listOf(first))
+
+        first.runCount.shouldBe(1)
+        second.runCount.shouldBe(1)
+    }
+
     test("a failing reaction does not prevent later reactions from running") {
         val failure = CountingExecutableReaction { error("reaction failed") }
         val healthy = CountingExecutableReaction()
@@ -68,30 +95,4 @@ val RuntimeTests by testSuite {
         healthy.runCount.shouldBe(2)
     }
 
-    test("pending reactions can be removed before the queue runs") {
-        val pending = CountingExecutableReaction()
-        val remover = object : Reaction {
-            override fun react() {
-                RuntimeEngine.removePendingReaction(pending)
-            }
-
-            override fun recordDependency(source: Source) = Unit
-        }
-
-        RuntimeEngine.notifyReactions(listOf(pending, remover))
-
-        pending.runCount.shouldBe(0)
-    }
-
-    test("work queued while draining is run by the same drain loop") {
-        val second = CountingExecutableReaction()
-        val first = CountingExecutableReaction {
-            RuntimeEngine.notifyReactions(listOf(second))
-        }
-
-        RuntimeEngine.notifyReactions(listOf(first))
-
-        first.runCount.shouldBe(1)
-        second.runCount.shouldBe(1)
-    }
 }

@@ -7,7 +7,6 @@ import ru.ought.kotx.autorun
 import ru.ought.kotx.observable
 
 @Suppress("unused")
-
 val AutorunTests by testSuite {
     testSuite("autorun lifecycle") {
         test("runs once when created") {
@@ -73,6 +72,26 @@ val AutorunTests by testSuite {
         }
     }
 
+    test("changes to either dependency trigger autorun") {
+        var first by observable(1)
+        var second by observable(10)
+        val values = mutableListOf<Int>()
+        autorun { values.add(first + second) }.use {
+            first = 2
+            second = 20
+            values.shouldBe(listOf(11, 12, 22))
+        }
+    }
+
+    test("repeated reads produce only one execution per change") {
+        var count by observable(1)
+        val values = mutableListOf<Int>()
+        autorun { values.add(count + count) }.use {
+            count = 2
+            values.shouldBe(listOf(2, 4))
+        }
+    }
+
     test("autorun replaces conditional dependencies") {
         var enabled by observable(true)
         var count by observable(0)
@@ -81,6 +100,25 @@ val AutorunTests by testSuite {
             enabled = false
             count = 1
             values.shouldContainExactly(listOf(0, -1))
+        }
+    }
+
+    test("closing one subscriber leaves another subscriber active") {
+        var count by observable(0)
+        val firstValues = mutableListOf<Int>()
+        val secondValues = mutableListOf<Int>()
+        val first = autorun { firstValues.add(count) }
+        lateinit var second: AutoCloseable
+        try {
+            second = autorun { secondValues.add(count) }
+            count = 1
+            first.close()
+            count = 2
+            firstValues.shouldBe(listOf(0, 1))
+            secondValues.shouldBe(listOf(0, 1, 2))
+        } finally {
+            first.close()
+            second.close()
         }
     }
 
@@ -131,6 +169,37 @@ val AutorunTests by testSuite {
 
             values.shouldContainExactly(listOf(0, 1))
             nested!!.close()
+        }
+    }
+
+    test("an autorun with no initial Sources does not react to later changes") {
+        var enabled = false
+        var count by observable(0)
+        var runs = 0
+        autorun {
+            runs++
+            if (enabled) count
+        }.use {
+            enabled = true
+            count = 1
+            runs.shouldBe(1)
+        }
+    }
+
+    test("an execution with no Sources removes all previous dependencies") {
+        var enabled = true
+        var count by observable(0)
+        var runs = 0
+        autorun {
+            runs++
+            if (enabled) count
+        }.use {
+            enabled = false
+            count = 1
+            runs.shouldBe(2)
+            enabled = true
+            count = 2
+            runs.shouldBe(2)
         }
     }
 

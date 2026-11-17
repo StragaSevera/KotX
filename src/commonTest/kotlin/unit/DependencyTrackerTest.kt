@@ -44,19 +44,15 @@ val DependencyTrackerTests by testSuite {
         reaction.reactionCount.shouldBe(2)
     }
 
-    test("reads made before a failed evaluation remain subscribed") {
+    test("clearing sources removes every subscription") {
         val reaction = TrackingReaction()
         val source = ReadableSource()
+        reaction.tracker.runAsActive { source.read() }
 
-        shouldThrow<IllegalStateException> {
-            reaction.tracker.runAsActive {
-                source.read()
-                error("evaluation failed")
-            }
-        }
+        reaction.tracker.clearSources()
         source.notifyChanged()
 
-        reaction.reactionCount.shouldBe(1)
+        reaction.reactionCount.shouldBe(0)
     }
 
     test("nested tracking restores the enclosing reaction") {
@@ -77,14 +73,19 @@ val DependencyTrackerTests by testSuite {
         RuntimeEngine.isTracking.shouldBe(false)
     }
 
-    test("clearing sources removes every subscription") {
+    test("reads made before a failed evaluation remain subscribed") {
         val reaction = TrackingReaction()
         val source = ReadableSource()
-        reaction.tracker.runAsActive { source.read() }
 
-        reaction.tracker.clearSources()
+        shouldThrow<IllegalStateException> {
+            reaction.tracker.runAsActive {
+                source.read()
+                error("evaluation failed")
+            }
+        }
         source.notifyChanged()
 
-        reaction.reactionCount.shouldBe(0)
+        reaction.reactionCount.shouldBe(1)
     }
+
 }
