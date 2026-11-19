@@ -39,20 +39,20 @@ val TrackingProtocolTests by testSuite {
         val source = ExternalSource()
         val reads = mutableListOf<Source>()
         val listener = SourceReadListener { reads.add(it) }
-        KotXRuntime.withSourceReadListener(listener) { source.read() }
+        KotXRuntime.withReadListener(listener) { source.read() }
         reads.size.shouldBe(1)
         (reads.single() === source).shouldBe(true)
         source.subscribers.size.shouldBe(0)
     }
 
     test("scoped activation returns the block result") {
-        KotXRuntime.withSourceReadListener(ExternalReaction()) { 42 }.shouldBe(42)
+        KotXRuntime.withReadListener(ExternalReaction()) { 42 }.shouldBe(42)
     }
 
     test("invalidation-only listeners receive notifications from core observables") {
         val property = observable(1)
         val reads = mutableListOf<Source>()
-        KotXRuntime.withSourceReadListener({ reads.add(it) }) { property.value }
+        KotXRuntime.withReadListener({ reads.add(it) }) { property.value }
         val source = reads.single()
         var invalidations = 0
         val listener = InvalidationListener { invalidations++ }
@@ -65,7 +65,7 @@ val TrackingProtocolTests by testSuite {
     test("reads outside tracking do nothing") {
         val source = ExternalSource()
         val reaction = ExternalReaction()
-        KotXRuntime.withSourceReadListener(reaction) { source.read() }
+        KotXRuntime.withReadListener(reaction) { source.read() }
         source.read()
         reaction.reads.size.shouldBe(1)
     }
@@ -74,7 +74,7 @@ val TrackingProtocolTests by testSuite {
         val property = observable(1)
         val first = ExternalReaction()
         val second = ExternalReaction()
-        KotXRuntime.withSourceReadListener(first) { property.value }
+        KotXRuntime.withReadListener(first) { property.value }
         val source = first.reads.single()
         first.subscribe(source)
         first.subscribe(source)
@@ -112,9 +112,9 @@ val TrackingProtocolTests by testSuite {
         val outer = ExternalReaction()
         val inner = ExternalReaction()
         val source = ExternalSource()
-        KotXRuntime.withSourceReadListener(outer) {
+        KotXRuntime.withReadListener(outer) {
             shouldThrow<IllegalStateException> {
-                KotXRuntime.withSourceReadListener(inner) {
+                KotXRuntime.withReadListener(inner) {
                     source.read()
                     error("failure")
                 }

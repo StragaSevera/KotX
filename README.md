@@ -197,7 +197,7 @@ roles. A `Source` registers invalidation listeners by identity with `addListener
 `subscribe(source)` and `unsubscribe(source)` to delegate to those methods.
 Implementers own cleanup. These extension interfaces are experimental and single-threaded.
 
-`KotXRuntime.withSourceReadListener(listener) { ... }` selects the listener for
+`KotXRuntime.withReadListener(listener) { ... }` selects the listener for
 synchronous calls to `reportRead(source)`, returns the block result, and restores the
 enclosing listener even when the block throws. The caller manages subscriptions.
 

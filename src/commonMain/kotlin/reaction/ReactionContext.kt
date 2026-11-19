@@ -1,12 +1,12 @@
 package ru.ought.kotx.reaction
 
-import ru.ought.kotx.runtime.RuntimeEngine
+import ru.ought.kotx.runtime.ReactionErrorReporter
 
 /** Creation-time configuration explicitly passed by reaction helpers. */
 internal class ReactionContext(val errorHandler: ReactionErrorHandler) {
     companion object {
         private val defaultContext = ReactionContext { error, subscription ->
-            if (!RuntimeEngine.reportReactionError(error, subscription)) subscription.close()
+            if (!ReactionErrorReporter.reportReactionError(error, subscription)) subscription.close()
         }
         private val ignoreContext = ReactionContext { _, _ -> }
         private val unsubscribeContext = ReactionContext { _, subscription -> subscription.close() }
@@ -43,7 +43,7 @@ internal class ReactionContext(val errorHandler: ReactionErrorHandler) {
                         error = handlerFailure
                     }
                 }
-                RuntimeEngine.reportReactionError(error, subscription)
+                ReactionErrorReporter.reportReactionError(error, subscription)
             })
     }
 }

@@ -6,7 +6,8 @@ import io.kotest.matchers.shouldBe
 import ru.ought.kotx.reaction.Reaction
 import ru.ought.kotx.reaction.ReactionExecutionException
 import ru.ought.kotx.reaction.ExecutableReaction
-import ru.ought.kotx.runtime.RuntimeEngine
+import ru.ought.kotx.runtime.ReactionScheduler
+import ru.ought.kotx.runtime.InvalidationDispatcher
 import ru.ought.kotx.tracking.Source
 
 private class CountingExecutableReaction(
@@ -15,7 +16,7 @@ private class CountingExecutableReaction(
     var runCount = 0
 
     override fun onInvalidated() {
-        RuntimeEngine.enqueueReaction(this)
+        ReactionScheduler.enqueueReaction(this)
     }
 
     override fun execute() {
@@ -31,7 +32,7 @@ val RuntimeTests by testSuite {
     test("one notification wave queues a executable reaction once") {
         val reaction = CountingExecutableReaction()
 
-        RuntimeEngine.notifyInvalidationListeners(listOf(reaction, reaction))
+        InvalidationDispatcher.notifyInvalidationListeners(listOf(reaction, reaction))
 
         reaction.runCount.shouldBe(1)
     }
@@ -40,13 +41,13 @@ val RuntimeTests by testSuite {
         val pending = CountingExecutableReaction()
         val remover = object : Reaction {
             override fun onInvalidated() {
-                RuntimeEngine.removePendingReaction(pending)
+                ReactionScheduler.removePendingReaction(pending)
             }
 
             override fun onSourceRead(source: Source) = Unit
         }
 
-        RuntimeEngine.notifyInvalidationListeners(listOf(pending, remover))
+        InvalidationDispatcher.notifyInvalidationListeners(listOf(pending, remover))
 
         pending.runCount.shouldBe(0)
     }
@@ -54,10 +55,10 @@ val RuntimeTests by testSuite {
     test("work queued while draining is run by the same drain loop") {
         val second = CountingExecutableReaction()
         val first = CountingExecutableReaction {
-            RuntimeEngine.notifyInvalidationListeners(listOf(second))
+            InvalidationDispatcher.notifyInvalidationListeners(listOf(second))
         }
 
-        RuntimeEngine.notifyInvalidationListeners(listOf(first))
+        InvalidationDispatcher.notifyInvalidationListeners(listOf(first))
 
         first.runCount.shouldBe(1)
         second.runCount.shouldBe(1)
@@ -68,7 +69,7 @@ val RuntimeTests by testSuite {
         val healthy = CountingExecutableReaction()
 
         shouldThrow<IllegalStateException> {
-            RuntimeEngine.notifyInvalidationListeners(listOf(failure, healthy))
+            InvalidationDispatcher.notifyInvalidationListeners(listOf(failure, healthy))
         }
 
         failure.runCount.shouldBe(1)
@@ -83,7 +84,7 @@ val RuntimeTests by testSuite {
         val healthy = CountingExecutableReaction()
 
         val failure = shouldThrow<ReactionExecutionException> {
-            RuntimeEngine.notifyInvalidationListeners(listOf(first, second, healthy))
+            InvalidationDispatcher.notifyInvalidationListeners(listOf(first, second, healthy))
         }
 
         failure.failures.shouldBe(listOf(firstError, secondError))
@@ -91,7 +92,7 @@ val RuntimeTests by testSuite {
         failure.suppressedExceptions.shouldBe(listOf(secondError))
         healthy.runCount.shouldBe(1)
 
-        RuntimeEngine.enqueueReaction(healthy)
+        ReactionScheduler.enqueueReaction(healthy)
         healthy.runCount.shouldBe(2)
     }
 

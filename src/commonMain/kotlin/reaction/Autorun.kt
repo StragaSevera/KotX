@@ -1,6 +1,6 @@
 package ru.ought.kotx.reaction
 
-import ru.ought.kotx.runtime.RuntimeEngine
+import ru.ought.kotx.runtime.ReactionScheduler
 import ru.ought.kotx.tracking.DependencyTracker
 import ru.ought.kotx.tracking.Source
 
@@ -52,7 +52,7 @@ class Autorun private constructor(
     override fun onInvalidated() {
         // Queue a run instead of executing immediately,
         // so Computeds can finish marking their caches stale first.
-        if (!disposed) RuntimeEngine.enqueueReaction(this)
+        if (!disposed) ReactionScheduler.enqueueReaction(this)
     }
 
     override fun execute() {
@@ -82,7 +82,7 @@ class Autorun private constructor(
         disposed = true
         effect = null
         errorHandler = null
-        RuntimeEngine.removePendingReaction(this)
+        ReactionScheduler.removePendingReaction(this)
         tracker.clearSources()
     }
 }

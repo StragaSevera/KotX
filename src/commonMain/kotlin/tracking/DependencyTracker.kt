@@ -1,6 +1,6 @@
 package ru.ought.kotx.tracking
 
-import ru.ought.kotx.runtime.RuntimeEngine
+import ru.ought.kotx.runtime.SourceReadTracker
 import ru.ought.kotx.reaction.Reaction
 import ru.ought.kotx.reaction.SourceReadListener
 
@@ -30,7 +30,7 @@ class DependencyTracker(private val owner: Reaction) {
     fun <T> runAsActive(block: () -> T): T {
         currentSubscriptions = mutableListOf()
         try {
-            return RuntimeEngine.withSourceReadListener(owner, block)
+            return SourceReadTracker.withReadListener(owner, block)
         } finally {
             // Unsubscribe from obsolete branches.
             // On failure, current contains the reads made before the exception.

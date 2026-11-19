@@ -1,6 +1,7 @@
 package ru.ought.kotx.tracking
 
-import ru.ought.kotx.runtime.RuntimeEngine
+import ru.ought.kotx.runtime.SourceReadTracker
+import ru.ought.kotx.runtime.InvalidationDispatcher
 import ru.ought.kotx.reaction.InvalidationListener
 
 /**
@@ -28,10 +29,10 @@ open class SubscriptionSource : Source {
 
     protected open fun reportRead() {
         // Outside a tracked evaluation, reading state does not establish a subscription.
-        RuntimeEngine.reportRead(this)
+        SourceReadTracker.reportRead(this)
     }
 
     protected fun notifySubscribers() {
-        RuntimeEngine.notifyInvalidationListeners(subscribers)
+        InvalidationDispatcher.notifyInvalidationListeners(subscribers)
     }
 }

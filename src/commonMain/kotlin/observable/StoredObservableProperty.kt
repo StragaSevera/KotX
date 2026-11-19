@@ -1,6 +1,6 @@
 package ru.ought.kotx.observable
 
-import ru.ought.kotx.runtime.RuntimeEngine
+import ru.ought.kotx.runtime.SourceReadTracker
 import ru.ought.kotx.tracking.SubscriptionSource
 import ru.ought.kotx.view.PropertyView
 
@@ -17,7 +17,7 @@ class StoredObservableProperty<T>(initial: T) : SubscriptionSource(), Observable
             return storedValue
         }
         set(value) {
-            check(!RuntimeEngine.isTracking) { "Observable writes during tracked evaluation are unsupported" }
+            check(!SourceReadTracker.isTracking) { "Observable writes during tracked evaluation are unsupported" }
             val changed = storedValue != value
             storedValue = value
             if (changed) notifySubscribers()

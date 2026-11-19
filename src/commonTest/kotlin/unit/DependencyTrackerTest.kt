@@ -5,7 +5,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import ru.ought.kotx.tracking.DependencyTracker
 import ru.ought.kotx.reaction.Reaction
-import ru.ought.kotx.runtime.RuntimeEngine
+import ru.ought.kotx.runtime.SourceReadTracker
 import ru.ought.kotx.tracking.Source
 import ru.ought.kotx.tracking.SubscriptionSource
 
@@ -70,7 +70,7 @@ val DependencyTrackerTests by testSuite {
 
         inner.reactionCount.shouldBe(1)
         outer.reactionCount.shouldBe(1)
-        RuntimeEngine.isTracking.shouldBe(false)
+        SourceReadTracker.isTracking.shouldBe(false)
     }
 
     test("reads made before a failed evaluation remain subscribed") {
