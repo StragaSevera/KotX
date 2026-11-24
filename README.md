@@ -265,29 +265,31 @@ and semantics may change before the first stable release.
 
 ## Using the library
 
-KotX releases are available as Git tags on GitHub. Gradle can fetch the tagged
-source and build the library as a source dependency. In `settings.gradle.kts`:
+KotX releases are available as Git tags on GitHub. From the consuming project's
+root, check out the release you want:
+
+```sh
+git clone --branch v0.0.1 --single-branch https://github.com/StragaSevera/KotX.git vendor/kotx
+```
+
+Add the checkout as a Gradle composite build in `settings.gradle.kts`:
 
 ```kotlin
-sourceControl {
-    gitRepository(uri("https://github.com/StragaSevera/KotX.git")) {
-        producesModule("ru.ought.kotx:core")
-    }
-}
+includeBuild("vendor/kotx")
 ```
 
 In `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("ru.ought.kotx:core:v0.0.1")
+    implementation("ru.ought.kotx:core:0.0.1")
 }
 ```
 
 In a Kotlin Multiplatform project, put the dependency in
-`kotlin.sourceSets.commonMain.dependencies`. Use the full Git tag, including the
-`v` prefix. For local development against a checkout, you can use Gradle's
-`includeBuild` with the path to the KotX checkout instead.
+`kotlin.sourceSets.commonMain.dependencies`. The Git checkout determines the
+version that Gradle builds. You can also keep that checkout as a Git submodule
+to record the exact KotX commit in your project.
 
 ## Building and testing
 
