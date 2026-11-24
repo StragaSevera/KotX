@@ -265,15 +265,29 @@ and semantics may change before the first stable release.
 
 ## Using the library
 
-KotX is not published to a package repository yet. Consume it from source with a
-Gradle composite build or include the project directly while development is in
-progress. The artifact coordinates are currently:
+KotX releases are available as Git tags on GitHub. Gradle can fetch the tagged
+source and build the library as a source dependency. In `settings.gradle.kts`:
+
+```kotlin
+sourceControl {
+    gitRepository(uri("https://github.com/StragaSevera/KotX.git")) {
+        producesModule("ru.ought.kotx:core")
+    }
+}
+```
+
+In `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("ru.ought.kotx:core:0.1.0-SNAPSHOT")
+    implementation("ru.ought.kotx:core:v0.0.1")
 }
 ```
+
+In a Kotlin Multiplatform project, put the dependency in
+`kotlin.sourceSets.commonMain.dependencies`. Use the full Git tag, including the
+`v` prefix. For local development against a checkout, you can use Gradle's
+`includeBuild` with the path to the KotX checkout instead.
 
 ## Building and testing
 
