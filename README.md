@@ -8,6 +8,8 @@ The current library targets JVM and JavaScript. Its public API is intentionally
 small and provisional while the reactive semantics are developed and exercised by
 real consumers.
 
+To add KotX to a separate Gradle project, see [Using the library](#using-the-library).
+
 ## Example
 
 ```kotlin
@@ -278,7 +280,7 @@ Add the checkout as a Gradle composite build in `settings.gradle.kts`:
 includeBuild("vendor/kotx")
 ```
 
-In `build.gradle.kts`:
+For a Kotlin/JVM project, add the dependency in `build.gradle.kts`:
 
 ```kotlin
 dependencies {
@@ -286,10 +288,18 @@ dependencies {
 }
 ```
 
-In a Kotlin Multiplatform project, put the dependency in
-`kotlin.sourceSets.commonMain.dependencies`. The Git checkout determines the
-version that Gradle builds. You can also keep that checkout as a Git submodule
-to record the exact KotX commit in your project.
+For a Kotlin Multiplatform project, add it to `commonMain`:
+
+```kotlin
+kotlin {
+    sourceSets.commonMain.dependencies {
+        implementation("ru.ought.kotx:core:0.0.1")
+    }
+}
+```
+
+The Git checkout determines the version that Gradle builds. You can also keep
+that checkout as a Git submodule to record the exact KotX commit in your project.
 
 ## Building and testing
 
