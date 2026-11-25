@@ -9,4 +9,4 @@ dependencyResolutionManagement {
     repositories { mavenCentral() }
 }
 
-rootProject.name = "core"
+rootProject.name = "kotx"
